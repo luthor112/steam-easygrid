@@ -1,0 +1,9 @@
+{
+    "$schema": "https://raw.githubusercontent.com/SteamClientHomebrew/Millennium/main/src/sys/plugin-schema.json",
+
+    "name": "steam-easygrid",
+    "common_name": "Easy SteamGrid",
+    "description": "Quick and easy SteamGridDB integration",
+    "versionj": "1.0.0",
+    "include": ["config.json"]
+}
