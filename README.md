@@ -18,3 +18,4 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 ## Known issues:
 - The new menu button doesn't alway appear the first time the Library tab is opened
+- Be patient, every change can take a couple seconds

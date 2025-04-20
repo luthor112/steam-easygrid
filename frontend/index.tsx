@@ -44,7 +44,7 @@ async function OnPopupCreation(popup: any) {
                                     const newImage = await get_image({ app_id: currentColl.allApps[j].appid, image_type: 0 });
                                     if (newImage !== "") {
                                         SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, filetype, 0);
-                                    } else {
+                                    } else if (fallbackEnabled) {
                                         const imageByName = await get_image_appname({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0 });
                                         if (imageByName !== "") {
                                             SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, imageByName, filetype, 0);
@@ -74,11 +74,42 @@ async function OnPopupCreation(popup: any) {
             }, 1000);
         });
 
-        /*gameList.addEventListener("click", async () => {
+        gameList.addEventListener("click", async () => {
             setTimeout(async () => {
-                TODO
+                const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
+                if (!topCapsuleDiv.classList.contains("easygrid-header")) {
+                    topCapsuleDiv.addEventListener("dblclick", async () => {
+                        if (!topCapsuleDiv.classList.contains("easygrid-custom-header")) {
+                            const filetype = await get_filetype({});
+                            const fallbackEnabled = await get_fallback_enabled({});
+
+                            for (let imgType = 1; imgType < 3; imgType++) {
+                                const newImage = await get_image({ app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType });
+                                if (newImage !== "") {
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, filetype, imgType);
+                                    topCapsuleDiv.classList.add("easygrid-custom-header");
+                                } else if (fallbackEnabled) {
+                                    const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+                                    const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+                                    if (currentApp) {
+                                        const imageByName = await get_image_appname({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType });
+                                        if (imageByName !== "") {
+                                            SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, imageByName, filetype, imgType);
+                                            topCapsuleDiv.classList.add("easygrid-custom-header");
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            SteamClient.Apps.ClearCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, 1);
+                            SteamClient.Apps.ClearCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, 2);
+                            topCapsuleDiv.classList.remove("easygrid-custom-header");
+                        }
+                    });
+                    topCapsuleDiv.classList.add("easygrid-header");
+                }
             }, 1000);
-        });*/
+        });
     }
 }
 
