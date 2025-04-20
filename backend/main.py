@@ -43,6 +43,35 @@ def cache_image(app_id, image_type):
                 with open(get_cached_filename(app_id, image_type), "wb") as f:
                     shutil.copyfileobj(r.raw, f)
 
+def cache_image_appname(app_name, app_id, image_type):
+    if os.path.exists(get_cached_filename(app_id, image_type)):
+        return
+
+    logger.log(f"Searching for type {image_type} for app {app_name}")
+
+    headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
+    search_response = requests.get(f"https://www.steamgriddb.com/api/v2/search/autocomplete/{app_name}", headers=headers)
+
+    sgdb_id = None
+    if search_response.status_code == 200:
+        data = search_response.json()
+        if data["success"] and len(data["data"]) > 0:
+            sgdb_id = data["data"][0]["id"]
+    if sgdb_id is None:
+        return
+
+    query_param = {"limit": "1", "mimes": f"image/{get_config()['filetype']}"}
+    query_param.update(get_config()["extra_config"])
+    response = requests.get(f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}", params=query_param, headers=headers)
+
+    if response.status_code == 200 or response.status_code == 207:
+        data = response.json()
+        if data["success"] and len(data["data"]) > 0:
+            image_url = data["data"][0]["url"]
+            with requests.get(image_url, stream=True) as r:
+                with open(get_cached_filename(app_id, image_type), "wb") as f:
+                    shutil.copyfileobj(r.raw, f)
+
 def get_encoded_image(app_id, image_type):
     with open(get_cached_filename(app_id, image_type), "rb") as fp:
         return base64.standard_b64encode(fp.read()).decode()
@@ -55,10 +84,26 @@ class Backend:
         return filetype
 
     @staticmethod
+    def get_fallback_enabled():
+        fallback_enabled = get_config()["display_name_fallback"]
+        logger.log(f"get_fallback_enabled() -> {fallback_enabled}")
+        return fallback_enabled
+
+    @staticmethod
     def get_image(app_id, image_type):
         logger.log(f"get_image() called for app {app_id} and type {image_type}")
 
         cache_image(app_id, image_type)
+        if os.path.exists(get_cached_filename(app_id, image_type)):
+            return get_encoded_image(app_id, image_type)
+        else:
+            return ""
+
+    @staticmethod
+    def get_image_appname(app_name, app_id, image_type):
+        logger.log(f"get_image_appname() called for app {app_name} with ID {app_id} and type {image_type}")
+
+        cache_image_appname(app_name, app_id, image_type)
         if os.path.exists(get_cached_filename(app_id, image_type)):
             return get_encoded_image(app_id, image_type)
         else:

@@ -1,5 +1,6 @@
 {
     "api_key": "",
     "filetype": "png",
+    "display_name_fallback": true,
     "extra_config": {}
 }

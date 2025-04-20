@@ -2,7 +2,9 @@ import { callable, findClassModule, findModule, Millennium, Menu, MenuItem, show
 
 // Backend functions
 const get_filetype = callable<[{}], string>('Backend.get_filetype');
+const get_fallback_enabled = callable<[{}], boolean>('Backend.get_fallback_enabled');
 const get_image = callable<[{ app_id: number, image_type: number }], string>('Backend.get_image');
+const get_image_appname = callable<[{ app_name: string, app_id: number, image_type: number }], string>('Backend.get_image_appname');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -37,10 +39,16 @@ async function OnPopupCreation(popup: any) {
                             extraMenuItems.push(<MenuItem onClick={async () => {
                                 const currentColl = collectionStore.GetCollection(collId);
                                 const filetype = await get_filetype({});
+                                const fallbackEnabled = await get_fallback_enabled({});
                                 for (let j = 0; j < currentColl.allApps.length; j++) {
                                     const newImage = await get_image({ app_id: currentColl.allApps[j].appid, image_type: 0 });
                                     if (newImage !== "") {
                                         SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, filetype, 0);
+                                    } else {
+                                        const imageByName = await get_image_appname({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0 });
+                                        if (imageByName !== "") {
+                                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, imageByName, filetype, 0);
+                                        }
                                     }
                                 }
                                 console.log("[steam-easygrid] Grids replaced for", collId);
