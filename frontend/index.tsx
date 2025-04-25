@@ -28,7 +28,7 @@ async function OnPopupCreation(popup: any) {
                 if (!oldGridButton) {
                     const gridButton = popup.m_popup.document.createElement("div");
                     gridButton.className = `${findModule(e => e.MenuButtonContainer).MenuButtonContainer} easygrid-button`;
-                    gridButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">+</div>`;
+                    gridButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">SGDB</div>`;
                     headerDiv.insertBefore(gridButton, headerDiv.firstChild.nextSibling.nextSibling);
                     
                     gridButton.addEventListener("click", async () => {
@@ -86,6 +86,9 @@ async function OnPopupCreation(popup: any) {
                         const filetype = await get_filetype({});
                         const fallbackEnabled = await get_fallback_enabled({});
 
+                        const searchingDiv = document.createElement("div");
+                        searchingDiv.innerHTML = "SEARCHING ON STEAMGRIDDB...";
+                        topCapsuleDiv.appendChild(searchingDiv);
                         for (let imgType = 1; imgType < 3; imgType++) {
                             const newImage = await get_image({ app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType });
                             if (newImage !== "") {
@@ -101,6 +104,7 @@ async function OnPopupCreation(popup: any) {
                                 }
                             }
                         }
+                        searchingDiv.remove();
                         console.log("[steam-easygrid] Header and logo replaced for", uiStore.currentGameListSelection.nAppId);
                     });
                     topCapsuleDiv.classList.add("easygrid-header");
