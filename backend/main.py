@@ -26,9 +26,10 @@ def get_cached_filename(app_id, image_type):
 
 def cache_image(app_id, image_type):
     if os.path.exists(get_cached_filename(app_id, image_type)):
+        logger.log("cache_image(): Image already cached")
         return
 
-    logger.log(f"Searching for type {image_type} for app {app_id}")
+    logger.log(f"cache_image(): Searching for type {image_type} for app {app_id}")
 
     headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
     query_param = {"limit": "1", "mimes": f"image/{get_config()['filetype']}"}
@@ -39,15 +40,21 @@ def cache_image(app_id, image_type):
         data = response.json()
         if data["success"] and len(data["data"]) > 0:
             image_url = data["data"][0]["url"]
+            logger.log(f"cache_image(): Downloading image from {image_url}")
             with requests.get(image_url, stream=True) as r:
                 with open(get_cached_filename(app_id, image_type), "wb") as f:
                     shutil.copyfileobj(r.raw, f)
+        else:
+            logger.log("cache_image(): Unsuccessful - 'success' is false or no data")
+    else:
+        logger.log(f"cache_image(): Unsuccessful - HTTP {response.status_code}")
 
 def cache_image_appname(app_name, app_id, image_type):
     if os.path.exists(get_cached_filename(app_id, image_type)):
+        logger.log("cache_image_appname(): Image already cached")
         return
 
-    logger.log(f"Searching for type {image_type} for app {app_name}")
+    logger.log(f"cache_image_appname(): Searching for app {app_name}")
 
     headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
     search_response = requests.get(f"https://www.steamgriddb.com/api/v2/search/autocomplete/{app_name}", headers=headers)
@@ -57,8 +64,16 @@ def cache_image_appname(app_name, app_id, image_type):
         data = search_response.json()
         if data["success"] and len(data["data"]) > 0:
             sgdb_id = data["data"][0]["id"]
+        else:
+            logger.log("cache_image_appname(): Unsuccessful - 'success' is false or no data")
+    else:
+        logger.log(f"cache_image_appname(): Unsuccessful - HTTP {response.status_code}")
+
     if sgdb_id is None:
+        logger.log("cache_image_appname(): App not found")
         return
+
+    logger.log(f"cache_image_appname(): Searching for type {image_type} for app {app_name}")
 
     query_param = {"limit": "1", "mimes": f"image/{get_config()['filetype']}"}
     query_param.update(get_config()["extra_config"])
@@ -68,9 +83,14 @@ def cache_image_appname(app_name, app_id, image_type):
         data = response.json()
         if data["success"] and len(data["data"]) > 0:
             image_url = data["data"][0]["url"]
+            logger.log(f"cache_image_appname(): Downloading image from {image_url}")
             with requests.get(image_url, stream=True) as r:
                 with open(get_cached_filename(app_id, image_type), "wb") as f:
                     shutil.copyfileobj(r.raw, f)
+        else:
+            logger.log("cache_image_appname(): Unsuccessful - 'success' is false or no data")
+    else:
+        logger.log(f"cache_image_appname(): Unsuccessful - HTTP {response.status_code}")
 
 def get_encoded_image(app_id, image_type):
     with open(get_cached_filename(app_id, image_type), "rb") as fp:
@@ -95,8 +115,10 @@ class Backend:
 
         cache_image(app_id, image_type)
         if os.path.exists(get_cached_filename(app_id, image_type)):
+            logger.log("get_image() -> Image exists, returning encoded data")
             return get_encoded_image(app_id, image_type)
         else:
+            logger.log("get_image() -> Image not found")
             return ""
 
     @staticmethod
@@ -105,8 +127,10 @@ class Backend:
 
         cache_image_appname(app_name, app_id, image_type)
         if os.path.exists(get_cached_filename(app_id, image_type)):
+            logger.log("get_image_appname() -> Image exists, returning encoded data")
             return get_encoded_image(app_id, image_type)
         else:
+            logger.log("get_image_appname() -> Image not found")
             return ""
 
 class Plugin:
@@ -118,6 +142,7 @@ class Plugin:
 
         cache_dir = get_cache_dir()
         if not os.path.exists(cache_dir):
+            logger.log("Creating cache dir...")
             os.mkdir(cache_dir)
         logger.log(f"Cache dir: {cache_dir}")
 
