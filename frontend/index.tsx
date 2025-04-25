@@ -41,6 +41,7 @@ async function OnPopupCreation(popup: any) {
                                 const filetype = await get_filetype({});
                                 const fallbackEnabled = await get_fallback_enabled({});
                                 for (let j = 0; j < currentColl.allApps.length; j++) {
+                                    gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                                     const newImage = await get_image({ app_id: currentColl.allApps[j].appid, image_type: 0 });
                                     if (newImage !== "") {
                                         SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, filetype, 0);
@@ -51,13 +52,16 @@ async function OnPopupCreation(popup: any) {
                                         }
                                     }
                                 }
+                                gridButton.firstChild.innerHTML = "Done!";
                                 console.log("[steam-easygrid] Grids replaced for", collId);
                             }}> Replace grids of {collName} </MenuItem>);
                             extraMenuItems.push(<MenuItem onClick={async () => {
+                                gridButton.firstChild.innerHTML = "Working...";
                                 const currentColl = collectionStore.GetCollection(collId);
                                 for (let j = 0; j < currentColl.allApps.length; j++) {
                                     SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
                                 }
+                                gridButton.firstChild.innerHTML = "Done!";
                                 console.log("[steam-easygrid] Grids cleared for", collId);
                             }}> Reset grids of {collName} </MenuItem>);
                         }
