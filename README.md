@@ -9,7 +9,6 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 ## Configuration
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
 - Set `api_key` to your [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
-- `filetype` can be set to a supported filetype (set to `png` by default)
 - Fallback to searching by name can be disabled by setting `display_name_fallback` to `false`
 - `extra_config` can be set to a dictionary with any extra parameters you want to add to the API queries
 
