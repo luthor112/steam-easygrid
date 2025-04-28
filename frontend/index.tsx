@@ -1,10 +1,7 @@
 import { callable, findClassModule, findModule, Millennium, Menu, MenuItem, showContextMenu } from "@steambrew/client";
 
 // Backend functions
-const get_fallback_enabled = callable<[{}], boolean>('Backend.get_fallback_enabled');
-const get_image = callable<[{ app_id: number, image_type: number, image_num: number, set_current: boolean }], string>('Backend.get_image');
-const get_image_appname = callable<[{ app_name: string, app_id: number, image_type: number, image_num: number, set_current: boolean }], string>('Backend.get_image_appname');
-const get_image_filetype = callable<[{ app_id: number, image_type: number, image_num: number }], string>('Backend.get_image_filetype');
+const get_image = callable<[{ app_name: string, app_id: number, image_type: number, image_num: number, set_current: boolean }], string>('Backend.get_image');
 const get_current_index = callable<[{ app_id: number, image_type: number }], number>('Backend.get_current_index');
 
 const WaitForElement = async (sel: string, parent = document) =>
@@ -39,19 +36,12 @@ async function OnPopupCreation(popup: any) {
                             const collName = collectionStore.userCollections[i].m_strName;
                             extraMenuItems.push(<MenuItem onClick={async () => {
                                 const currentColl = collectionStore.GetCollection(collId);
-                                const fallbackEnabled = await get_fallback_enabled({});
                                 for (let j = 0; j < currentColl.allApps.length; j++) {
                                     gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                                    const newImage = await get_image({ app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true });
+                                    const newImage = await get_image({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true });
                                     if (newImage !== "") {
-                                        const filetype = await get_image_filetype({ app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0 });
-                                        SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, filetype, 0);
-                                    } else if (fallbackEnabled) {
-                                        const imageByName = await get_image_appname({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true });
-                                        if (imageByName !== "") {
-                                            const filetype = await get_image_filetype({ app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0 });
-                                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, imageByName, filetype, 0);
-                                        }
+                                        const newImageParts = newImage.split(";", 2);
+                                        SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], newImageParts[0], 0);
                                     }
                                 }
                                 gridButton.firstChild.innerHTML = "Done!";
@@ -85,25 +75,17 @@ async function OnPopupCreation(popup: any) {
                 const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
                 if (!topCapsuleDiv.classList.contains("easygrid-header")) {
                     topCapsuleDiv.addEventListener("dblclick", async () => {
-                        const fallbackEnabled = await get_fallback_enabled({});
-
                         const searchingDiv = document.createElement("div");
                         searchingDiv.innerHTML = "SEARCHING ON STEAMGRIDDB...";
                         topCapsuleDiv.appendChild(searchingDiv);
                         for (let imgType = 1; imgType < 3; imgType++) {
-                            const newImage = await get_image({ app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType, image_num: 0, set_current: true });
-                            if (newImage !== "") {
-                                const filetype = await get_image_filetype({ app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType, image_num: 0 });
-                                SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, filetype, imgType);
-                            } else if (fallbackEnabled) {
-                                const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                                const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
-                                if (currentApp) {
-                                    const imageByName = await get_image_appname({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType, image_num: 0, set_current: true });
-                                    if (imageByName !== "") {
-                                        const filetype = await get_image_filetype({ app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType, image_num: 0 });
-                                        SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, imageByName, filetype, imgType);
-                                    }
+                            const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+                            const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+                            if (currentApp) {
+                                const newImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType, image_num: 0, set_current: true });
+                                if (newImage !== "") {
+                                    const newImageParts = newImage.split(";", 2);
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], imgType);
                                 }
                             }
                         }

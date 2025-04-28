@@ -53,16 +53,6 @@ def get_encoded_image(fname):
 # DB UTIL #
 ###########
 
-def get_filetype_from_db(app_id, image_type, image_num):
-    app_id_str = str(app_id)
-    if app_id_str in game_db["games"]:
-        if type_dict[image_type] in game_db["games"][app_id_str]:
-            if image_num >= 0 and image_num < len(game_db["games"][app_id_str][type_dict[image_type]]):
-                img_url = game_db["games"][app_id_str][type_dict[image_type]][image_num]
-                if "." in img_url:
-                    return img_url[img_url.rfind(".")+1:]
-    return ""
-
 def get_current_image_num(app_id, image_type):
     app_id_str = str(app_id)
     if app_id_str in game_db["games"]:
@@ -75,24 +65,73 @@ def get_current_image_num(app_id, image_type):
 # SGDB INTEROP #
 ################
 
-def get_cached_filename(app_id, image_type, image_num, set_current):
+def get_sgdb_id(app_name, app_id):
+    logger.log(f"get_sgdb_id(): Searching for app {app_name} with ID {app_id}")
     app_id_str = str(app_id)
-    logger.log(f"get_cached_filename(): Searching for type {image_type} for app {app_id} with index {image_num}")
+    sgdb_id = None
+    headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
+
+    games_response = requests.get(f"https://www.steamgriddb.com/api/v2/games/steam/{app_id}", headers=headers)
+    if games_response.status_code == 200:
+        data = games_response.json()
+        if data["success"]:
+            sgdb_id = data["data"]["id"]
+        else:
+            logger.log("get_sgdb_id(): Unsuccessful - 'success' is false")
+    else:
+        logger.log(f"get_sgdb_id(): Unsuccessful - HTTP {games_response.status_code}")
+
+    if sgdb_id is not None:
+        logger.log(f"get_sgdb_id(): App found as {sgdb_id}")
+        return sgdb_id
+
+    fallback_enabled = get_config()["display_name_fallback"]
+    if not fallback_enabled:
+        logger.log("get_sgdb_id(): Fallback disabled")
+        return None
+
+    search_response = requests.get(f"https://www.steamgriddb.com/api/v2/search/autocomplete/{app_name}", headers=headers)
+    if search_response.status_code == 200:
+        data = search_response.json()
+        if data["success"] and len(data["data"]) > 0:
+            sgdb_id = data["data"][0]["id"]
+        else:
+            logger.log("get_sgdb_id(): Unsuccessful - 'success' is false or no data")
+    else:
+        logger.log(f"get_sgdb_id(): Unsuccessful - HTTP {search_response.status_code}")
+
+    if sgdb_id is not None:
+        logger.log(f"get_sgdb_id(): App found as {sgdb_id}")
+        return sgdb_id
+
+    return None
+
+def get_cached_file(app_name, app_id, image_type, image_num, set_current):
+    logger.log(f"get_cached_file(): Searching for type {image_type} for app {app_id} with index {image_num}")
+    app_id_str = str(app_id)
+    sgdb_id = None
+
+    if app_id_str in game_db["overrides"]:
+        sgdb_id = game_db["overrides"][app_id_str]
+    else:
+        sgdb_id = get_sgdb_id(app_name, app_id)
+        if sgdb_id is None:
+            logger.log("get_cached_file(): Cannot find GameID")
+            return None
+        else:
+            game_db["overrides"][str(app_id)] = sgdb_id
+            save_game_db()
 
     if app_id_str not in game_db["games"]:
         game_db["games"][app_id_str] = {}
 
     if type_dict[image_type] not in game_db["games"][app_id_str]:
-        logger.log(f"get_cached_filename(): No URLs cached for type {image_type} for app {app_id}")
+        logger.log(f"get_cached_file(): No URLs cached for type {image_type} for app {app_id}")
         url_list = []
-
-        game_ep = f"steam/{app_id}"
-        if app_id_str in game_db["overrides"]:
-            game_ep = f"game/{game_db['overrides'][app_id_str]}"
 
         headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
         query_param = get_config()["extra_config"]
-        response = requests.get(f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/{game_ep}", params=query_param, headers=headers)
+        response = requests.get(f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}", params=query_param, headers=headers)
 
         if response.status_code == 200:
             data = response.json()
@@ -100,26 +139,31 @@ def get_cached_filename(app_id, image_type, image_num, set_current):
                 for i in range(len(data["data"])):
                     url_list.append(data["data"][i]["url"])
             else:
-                logger.log("get_cached_filename(): Unsuccessful - 'success' is false or no data")
+                logger.log("get_cached_file(): Unsuccessful - 'success' is false or no data")
         else:
-            logger.log(f"get_cached_filename(): Unsuccessful - HTTP {response.status_code}")
+            logger.log(f"get_cached_file(): Unsuccessful - HTTP {response.status_code}")
 
         if len(url_list) > 0:
             game_db["games"][app_id_str][type_dict[image_type]] = url_list
             save_game_db()
         else:
+            logger.log("get_cached_file(): No URLs found")
             return None
 
     if image_num < 0 or image_num >= len(game_db["games"][app_id_str][type_dict[image_type]]):
-        logger.log(f"get_cached_filename(): Invalid index {image_num}")
+        logger.log(f"get_cached_file(): Invalid index {image_num}")
         return None
 
     image_url = game_db["games"][app_id_str][type_dict[image_type]][image_num]
-    logger.log(f"get_cached_filename(): Image URL is {image_url}")
+    logger.log(f"get_cached_file(): Image URL is {image_url}")
 
-    fname = os.path.join(get_cache_dir(), f"{app_id}_{image_type}_{image_num}.{get_filetype_from_db(app_id, image_type, image_num)}")
+    ftype = ""
+    if "." in image_url:
+        ftype = image_url[image_url.rfind(".")+1:]
+    logger.log(f"get_cached_file(): Image filetype is {ftype}")
+    fname = os.path.join(get_cache_dir(), f"{app_id}_{image_type}_{image_num}.{ftype}")
     if not os.path.exists(fname):
-        logger.log("get_cached_filename(): Downloading...")
+        logger.log("get_cached_file(): Downloading...")
         with requests.get(image_url, stream=True) as r:
             with open(fname, "wb") as f:
                 shutil.copyfileobj(r.raw, f)
@@ -129,31 +173,8 @@ def get_cached_filename(app_id, image_type, image_num, set_current):
         game_db["games"][app_id_str][ckey] = image_num
         save_game_db()
 
-    logger.log(f"get_cached_filename() -> {fname}")
-    return fname
-
-def fill_override(app_name, app_id):
-    logger.log(f"fill_override(): Searching for app {app_name}")
-
-    headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
-    search_response = requests.get(f"https://www.steamgriddb.com/api/v2/search/autocomplete/{app_name}", headers=headers)
-
-    sgdb_id = None
-    if search_response.status_code == 200:
-        data = search_response.json()
-        if data["success"] and len(data["data"]) > 0:
-            sgdb_id = data["data"][0]["id"]
-        else:
-            logger.log("fill_override(): Unsuccessful - 'success' is false or no data")
-    else:
-        logger.log(f"fill_override(): Unsuccessful - HTTP {response.status_code}")
-
-    if sgdb_id is None:
-        logger.log("fill_override(): App not found")
-    else:
-        logger.log(f"fill_override(): App found as {sgdb_id}")
-        game_db["overrides"][str(app_id)] = sgdb_id
-        save_game_db()
+    logger.log(f"get_cached_file() -> {fname}")
+    return f"{ftype};{get_encoded_image(fname)}"
 
 ##############
 # INTERFACES #
@@ -161,34 +182,16 @@ def fill_override(app_name, app_id):
 
 class Backend:
     @staticmethod
-    def get_fallback_enabled():
-        fallback_enabled = get_config()["display_name_fallback"]
-        logger.log(f"get_fallback_enabled() -> {fallback_enabled}")
-        return fallback_enabled
+    def get_image(app_name, app_id, image_type, image_num, set_current):
+        logger.log(f"get_image() called for app {app_name} with ID {app_id} and type {image_type} and index {image_num}")
+        cached_file = get_cached_file(app_name, app_id, image_type, image_num, set_current)
 
-    @staticmethod
-    def get_image(app_id, image_type, image_num, set_current):
-        logger.log(f"get_image() called for app {app_id} and type {image_type} and index {image_num}")
-
-        fname = get_cached_filename(app_id, image_type, image_num, set_current)
-        if fname is not None:
+        if cached_file is not None:
             logger.log("get_image() -> Image exists, returning encoded data")
-            return get_encoded_image(fname)
+            return cached_file
         else:
             logger.log("get_image() -> Image not found")
             return ""
-
-    @staticmethod
-    def get_image_appname(app_name, app_id, image_type, image_num, set_current):
-        logger.log(f"get_image_appname() called for app {app_name} with ID {app_id} and type {image_type} and index {image_num}")
-        fill_override(app_name, app_id)
-        return get_image(app_id, image_type, image_num, set_current)
-
-    @staticmethod
-    def get_image_filetype(app_id, image_type, image_num):
-        filetype = get_filetype_from_db(app_id, image_type, image_num)
-        logger.log(f"get_image_filetype() -> {filetype}")
-        return filetype
 
     @staticmethod
     def get_current_index(app_id, image_type):
