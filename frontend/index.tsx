@@ -131,7 +131,22 @@ async function OnPopupCreation(popup: any) {
                                 }
                             });
                             searchingDiv.querySelector("input#grid_num").addEventListener("change", async (event) => {
-                                // TODO
+                                const targetNum = Number(event.target.value);
+                                console.log("[steam-easygrid 2] Grid selected:", targetNum);
+                                if (targetNum === -1) {
+                                    SteamClient.Apps.ClearCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, 0);
+                                    await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 0, image_num: -1, set_current: true });
+                                    searchingDiv.querySelector("img#grid_img").src = "";
+                                    console.log("[steam-easygrid 2] Grid reset for", uiStore.currentGameListSelection.nAppId);
+                                } else {
+                                    const newImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 0, image_num: targetNum, set_current: true });
+                                    if (newImage !== "") {
+                                        const newImageParts = newImage.split(";", 2);
+                                        SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], 0);
+                                        searchingDiv.querySelector("img#grid_img").src = `data:image/${newImageParts[0]};base64,${newImageParts[1]}`;
+                                        console.log("[steam-easygrid 2] Grid replaced for", uiStore.currentGameListSelection.nAppId);
+                                    }
+                                }
                             });
                             searchingDiv.querySelector("input#hero_r").addEventListener("click", async () => {
                                 searchingDiv.querySelector("input#hero_num").value = -1;
@@ -149,7 +164,13 @@ async function OnPopupCreation(popup: any) {
                                 searchingDiv.remove();
                             });
 
-                            // TODO: Set current grid picture to img tag
+                            if (currentGridNum !== -1) {
+                                const currentImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 0, image_num: currentGridNum, set_current: false });
+                                if (currentImage !== "") {
+                                    const currentImageParts = currentImage.split(";", 2);
+                                    searchingDiv.querySelector("img#grid_img").src = `data:image/${currentImageParts[0]};base64,${currentImageParts[1]}`;
+                                }
+                            }
                         }
                     });
                     topCapsuleDiv.classList.add("easygrid-header");
