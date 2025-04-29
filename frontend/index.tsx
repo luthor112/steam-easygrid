@@ -3,6 +3,7 @@ import { callable, findClassModule, findModule, Millennium, Menu, MenuItem, show
 // Backend functions
 const get_image = callable<[{ app_name: string, app_id: number, image_type: number, image_num: number, set_current: boolean }], string>('Backend.get_image');
 const get_current_index = callable<[{ app_id: number, image_type: number }], number>('Backend.get_current_index');
+const get_max_index = callable<[{ app_id: number, image_type: number }], number>('Backend.get_max_index');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -48,10 +49,11 @@ async function OnPopupCreation(popup: any) {
                                 console.log("[steam-easygrid 2] Grids replaced for", collId);
                             }}> Replace grids of {collName} </MenuItem>);
                             extraMenuItems.push(<MenuItem onClick={async () => {
-                                gridButton.firstChild.innerHTML = "Working...";
                                 const currentColl = collectionStore.GetCollection(collId);
                                 for (let j = 0; j < currentColl.allApps.length; j++) {
+                                    gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                                     SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
+                                    await get_image({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: -1, set_current: true });
                                 }
                                 gridButton.firstChild.innerHTML = "Done!";
                                 console.log("[steam-easygrid 2] Grids cleared for", collId);
@@ -75,22 +77,80 @@ async function OnPopupCreation(popup: any) {
                 const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
                 if (!topCapsuleDiv.classList.contains("easygrid-header")) {
                     topCapsuleDiv.addEventListener("dblclick", async () => {
-                        const searchingDiv = document.createElement("div");
-                        searchingDiv.innerHTML = "SEARCHING ON STEAMGRIDDB...";
-                        topCapsuleDiv.appendChild(searchingDiv);
-                        for (let imgType = 1; imgType < 3; imgType++) {
+                        const oldSearchingDiv = topCapsuleDiv.querySelector('div.easygrid-panel');
+                        if (!oldSearchingDiv) {
                             const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
                             const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
-                            if (currentApp) {
-                                const newImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: imgType, image_num: 0, set_current: true });
-                                if (newImage !== "") {
-                                    const newImageParts = newImage.split(";", 2);
-                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], imgType);
+
+                            await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 1, image_num: -1, set_current: false });
+                            await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 2, image_num: -1, set_current: false });
+                            await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 0, image_num: -1, set_current: false });
+                            const currentHeroNum = await get_current_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 1 });
+                            const currentLogoNum = await get_current_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 2 });
+                            const currentGridNum = await get_current_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 0 });
+                            const maxHeroNum = await get_max_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 1 });
+                            const maxLogoNum = await get_max_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 2 });
+                            const maxGridNum = await get_max_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 0 });
+
+                            const searchingDiv = document.createElement("div");
+                            searchingDiv.className = "easygrid-panel";
+                            searchingDiv.style.cssText = "z-index: 999;";
+                            searchingDiv.innerHTML = `<br><br><br><input id="hero_num" type="number" min="-1" max="${maxHeroNum}" value="${currentHeroNum}"><input id="hero_r" type="button" value="R"><br><input id="logo_num" type="number" min="-1" max="${maxLogoNum}" value="${currentLogoNum}"><input id="logo_r" type="button" value="R"><br><input id="grid_num" type="number" min="-1" max="${maxGridNum}" value="${currentGridNum}"><input id="grid_r" type="button" value="R"><br><input id="close_panel" type="button" value="Close"><br><img id="grid_img" width="70">`;
+                            topCapsuleDiv.appendChild(searchingDiv);
+
+                            searchingDiv.querySelector("input#hero_num").addEventListener("change", async (event) => {
+                                const targetNum = Number(event.target.value);
+                                console.log("[steam-easygrid 2] Header selected:", targetNum);
+                                if (targetNum === -1) {
+                                    SteamClient.Apps.ClearCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, 1);
+                                    await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 1, image_num: -1, set_current: true });
+                                    console.log("[steam-easygrid 2] Header reset for", uiStore.currentGameListSelection.nAppId);
+                                } else {
+                                    const newImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 1, image_num: targetNum, set_current: true });
+                                    if (newImage !== "") {
+                                        const newImageParts = newImage.split(";", 2);
+                                        SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], 1);
+                                        console.log("[steam-easygrid 2] Header replaced for", uiStore.currentGameListSelection.nAppId);
+                                    }
                                 }
-                            }
+                            });
+                            searchingDiv.querySelector("input#logo_num").addEventListener("change", async (event) => {
+                                const targetNum = Number(event.target.value);
+                                console.log("[steam-easygrid 2] Logo selected:", targetNum);
+                                if (targetNum === -1) {
+                                    SteamClient.Apps.ClearCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, 2);
+                                    await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 2, image_num: -1, set_current: true });
+                                    console.log("[steam-easygrid 2] Logo reset for", uiStore.currentGameListSelection.nAppId);
+                                } else {
+                                    const newImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 2, image_num: targetNum, set_current: true });
+                                    if (newImage !== "") {
+                                        const newImageParts = newImage.split(";", 2);
+                                        SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], 2);
+                                        console.log("[steam-easygrid 2] Logo replaced for", uiStore.currentGameListSelection.nAppId);
+                                    }
+                                }
+                            });
+                            searchingDiv.querySelector("input#grid_num").addEventListener("change", async (event) => {
+                                // TODO
+                            });
+                            searchingDiv.querySelector("input#hero_r").addEventListener("click", async () => {
+                                searchingDiv.querySelector("input#hero_num").value = -1;
+                                searchingDiv.querySelector("input#hero_num").dispatchEvent(new Event('change'));
+                            });
+                            searchingDiv.querySelector("input#logo_r").addEventListener("click", async () => {
+                                searchingDiv.querySelector("input#logo_num").value = -1;
+                                searchingDiv.querySelector("input#logo_num").dispatchEvent(new Event('change'));
+                            });
+                            searchingDiv.querySelector("input#grid_r").addEventListener("click", async () => {
+                                searchingDiv.querySelector("input#grid_num").value = -1;
+                                searchingDiv.querySelector("input#grid_num").dispatchEvent(new Event('change'));
+                            });
+                            searchingDiv.querySelector("input#close_panel").addEventListener("click", async () => {
+                                searchingDiv.remove();
+                            });
+
+                            // TODO: Set current grid picture to img tag
                         }
-                        searchingDiv.remove();
-                        console.log("[steam-easygrid 2] Header and logo replaced for", uiStore.currentGameListSelection.nAppId);
                     });
                     topCapsuleDiv.classList.add("easygrid-header");
                 }

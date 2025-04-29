@@ -37,11 +37,13 @@ def get_config():
         return json.load(fp)
 
 def load_game_db():
+    global game_db
     if os.path.exists(get_game_db_fname()):
         with open(get_game_db_fname(), "rt") as fp:
             game_db = json.load(fp)
 
 def save_game_db():
+    global game_db
     with open(get_game_db_fname(), "wt") as fp:
         json.dump(game_db, fp)
 
@@ -54,11 +56,20 @@ def get_encoded_image(fname):
 ###########
 
 def get_current_image_num(app_id, image_type):
+    global game_db
     app_id_str = str(app_id)
     if app_id_str in game_db["games"]:
         ckey = f"current_{type_dict[image_type]}"
         if ckey in game_db["games"][app_id_str]:
             return game_db["games"][app_id_str][ckey]
+    return -1
+
+def get_max_image_num(app_id, image_type):
+    global game_db
+    app_id_str = str(app_id)
+    if app_id_str in game_db["games"]:
+        if type_dict[image_type] in game_db["games"][app_id_str]:
+            return len(game_db["games"][app_id_str][type_dict[image_type]])-1
     return -1
 
 ################
@@ -107,6 +118,8 @@ def get_sgdb_id(app_name, app_id):
     return None
 
 def get_cached_file(app_name, app_id, image_type, image_num, set_current):
+    global game_db
+
     logger.log(f"get_cached_file(): Searching for type {image_type} for app {app_id} with index {image_num}")
     app_id_str = str(app_id)
     sgdb_id = None
@@ -149,6 +162,12 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         else:
             logger.log("get_cached_file(): No URLs found")
             return None
+
+    if image_num == -1 and set_current:
+        ckey = f"current_{type_dict[image_type]}"
+        game_db["games"][app_id_str][ckey] = image_num
+        save_game_db()
+        return None
 
     if image_num < 0 or image_num >= len(game_db["games"][app_id_str][type_dict[image_type]]):
         logger.log(f"get_cached_file(): Invalid index {image_num}")
@@ -195,9 +214,17 @@ class Backend:
 
     @staticmethod
     def get_current_index(app_id, image_type):
+        logger.log(f"get_current_index() called for app {app_id} and type {image_type}")
         current_num = get_current_image_num(app_id, image_type)
         logger.log(f"get_current_index() -> {current_num}")
         return current_num
+
+    @staticmethod
+    def get_max_index(app_id, image_type):
+        logger.log(f"get_max_index() called for app {app_id} and type {image_type}")
+        max_num = get_max_image_num(app_id, image_type)
+        logger.log(f"get_max_index() -> {max_num}")
+        return max_num
 
 class Plugin:
     def _front_end_loaded(self):
