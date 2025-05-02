@@ -3,6 +3,7 @@
     "display_name_fallback": true,
     "replace_custom_images": true,
     "appids_excluded_from_replacement": [],
+    "prioritize_animated":  false,
     "grids_config": {
         "nsfw": "false",
         "humor": "any",

@@ -62,7 +62,7 @@ def get_current_image_num(app_id, image_type):
     if app_id_str in game_db["games"]:
         ckey = f"current_{type_dict[image_type]}"
         if ckey in game_db["games"][app_id_str]:
-            return game_db["games"][app_id_str][ckey]
+            return int(game_db["games"][app_id_str][ckey])
     return -1
 
 def get_max_image_num(app_id, image_type):
@@ -149,34 +149,25 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
     if type_dict[image_type] not in game_db["games"][app_id_str]:
         logger.log(f"get_cached_file(): No URLs cached for type {image_type} for app {app_id}")
         url_list = []
+        animated_url_list = []
 
         headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
-        page = 0
         query_param = get_config()[f"{type_dict[image_type]}_config"]
 
-        while True:
-            query_param["page"] = page
-            query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
-            url = f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}?{query_string}"
-            response = requests.get(url, headers=headers)
+        original_types = query_param["types"]
+        query_param["types"] = "animated"
+        fetch_image_urls(headers, image_type, query_param, sgdb_id, animated_url_list)
+        query_param["types"] = original_types
 
-            if response.status_code == 200:
-                data = response.json()
-                if data["success"] and len(data["data"]) > 0:
-                    for item in data["data"]:
-                        url_list.append(item["url"])
-                    if len(data["data"]) < 50:
-                        break
-                    page += 1
-                else:
-                    logger.log("get_cached_file(): Unsuccessful - 'success' is false or no data")
-                    break
-            else:
-                logger.log(f"get_cached_file(): Unsuccessful - HTTP {response.status_code}")
-                break
+        fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list)
 
-        if len(url_list) > 0:
-            game_db["games"][app_id_str][type_dict[image_type]] = url_list
+        final_url_list = {}
+        for i, url in enumerate(url_list):
+            type = "animated" if url in animated_url_list else "static"
+            final_url_list[str(i)] = {"url": url, "type": type}
+
+        if len(final_url_list) > 0:
+            game_db["games"][app_id_str][type_dict[image_type]] = final_url_list
             save_game_db()
         else:
             logger.log("get_cached_file(): No URLs found")
@@ -192,7 +183,7 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         logger.log(f"get_cached_file(): Invalid index {image_num}")
         return None
 
-    image_url = game_db["games"][app_id_str][type_dict[image_type]][image_num]
+    image_url = game_db["games"][app_id_str][type_dict[image_type]][str(image_num)]["url"]
     logger.log(f"get_cached_file(): Image URL is {image_url}")
 
     ftype = "png"
@@ -212,6 +203,31 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
     logger.log(f"get_cached_file() -> {fname}")
     return f"{ftype};{get_encoded_image(fname)}"
 
+
+def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list):
+    page = 0
+    while True:
+        query_param["page"] = page
+        query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
+        url = f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}?{query_string}"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            data = response.json()
+            if data["success"] and len(data["data"]) > 0:
+                for item in data["data"]:
+                    url_list.append(item["url"])
+                if len(data["data"]) < 50:
+                    break
+                page += 1
+            else:
+                logger.log(f"get_cached_file(): Unsuccessful - 'success' is false or no data for url {response.url}")
+                break
+        else:
+            logger.log(f"get_cached_file(): Unsuccessful - HTTP {response.status_code} for url {response.url}")
+            break
+
+
 ##############
 # INTERFACES #
 ##############
@@ -221,9 +237,17 @@ class Backend:
     def get_image(app_name, app_id, image_type, image_num, set_current, is_replace_collection = False):
         logger.log(f"get_image() called for app {app_name} with ID {app_id} and type {image_type} and index {image_num}")
         curr_image = get_current_image_num(app_id, image_type)
-        if is_replace_collection and ((not get_config()["replace_custom_images"] and curr_image != -1) or app_id in get_config()["appids_excluded_from_replacement"]):
-            image_num = curr_image
         cached_file = get_cached_file(app_name, app_id, image_type, image_num, set_current)
+
+        if is_replace_collection:
+            if (not get_config()["replace_custom_images"] and curr_image != -1) or app_id in get_config()["appids_excluded_from_replacement"]:
+                cached_file = get_cached_file(app_name, app_id, image_type, curr_image, set_current)
+            elif get_config()["prioritize_animated"]:
+                images = game_db["games"][str(app_id)][type_dict[image_type]]
+                for i, image in images.items():
+                    if image["type"] == "animated":
+                        cached_file = get_cached_file(app_name, app_id, image_type, int(i), set_current)
+                        break
 
         if cached_file is not None:
             logger.log("get_image() -> Image exists, returning encoded data")
