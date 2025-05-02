@@ -10,17 +10,15 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
 - Set `api_key` to your [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
 - Fallback to searching by name can be disabled by setting `display_name_fallback` to `false`
-- `extra_config` can be set to a dictionary with any extra parameters you want to add to the API queries
+- When replacing all grid images in a collection, to disable skipping apps with a custom grid already set by the plugin, set `replace_custom_images` ti `false`
+- When replacing all grid images in a collection, to skip a given app, add it to the `appids_excluded_from_replacement` list
+- `grids_config`, `heroes_config` and `logos_config` can be set to a dictionary with any extra parameters you want to add to the API queries
 
 ## Prerequisites
 - [Millennium](https://steambrew.app/)
 - [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
 
 ## Known issues:
-- The new menu button doesn't alway appear the first time the Library tab is opened
-    - This also renders the doubleclick handler non-functional
-    - To fix this, click the Library tab again
-- Only works if an app is selected from the left panel, **not** from the grid
 - Double clicking the header will sometimes open the panel twice
     - In this case, just close one of them
 - Be patient, every change can take a couple seconds
@@ -35,8 +33,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 # Using Grid images from SteamGridDB for entire Collections
 
-- In Steam, click Library, then search for the `SGDB` button
-- If the button doesn't appear, click Library again (known issue)
+- In the Steam Library, search for the `SGDB` button
 - The button should look like the one here (on the default skin):
 
 ![SGDB button](screenshots/sgdb-button.png)
@@ -51,19 +48,23 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 # Using Headers (heroes), Logos and Grids from SteamGridDB
 
-- In Steam, click Library, then wait for the `SGDB` button to appear
-- If the button doesn't appear, click Library again (known issue)
-- Click an app in the left panel
-- Double-click the header
+- Double-click the header of an app
 - A small panel should appear with the settings
     - The panel appears on the right side of the header (on the default skin) as such:
 
 ![Settings panel](screenshots/header-panel.png)
 
 - The following controls are shown:
-    - First row: Header (hero) image number, Reset button (sets it to -1)
-    - Second row: Logo image number, Reset button (sets it to -1)
-    - Third row: Grid image number, Reset button (sets it to -1)
+    - Number selectors for the Hero (header), Logo and Grid; Reset button (sets it to -1)
+    - Purge Cache button: Purges all cached links and files for the given app, forcing a new search and new downloads
+        - This is a good first try when something stops working
     - Close button
     - Below the Close button, the currently selected Grid image is displayed (if any)
 - Image numbers start at 0, with -1 meaning "not set"
+
+## Troubleshooting
+
+When someting stop working, a good first step is to try pruging the cache of the given app:
+- Double-click the header of the app
+- Click `Purge Cache`, this will purge cached links and files
+- Double-click the header again, this should force a new search on SGDB, hopefully fixing the problem
