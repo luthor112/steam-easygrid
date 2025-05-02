@@ -1,9 +1,10 @@
-import { callable, findClassModule, findModule, Millennium, Menu, MenuItem, showContextMenu } from "@steambrew/client";
+import { callable, findModule, Millennium, Menu, MenuItem, showContextMenu } from "@steambrew/client";
 
 // Backend functions
-const get_image = callable<[{ app_name: string, app_id: number, image_type: number, image_num: number, set_current: boolean }], string>('Backend.get_image');
+const get_image = callable<[{ app_name: string, app_id: number, image_type: number, image_num: number, set_current: boolean, is_replace_collection?: boolean }], string>('Backend.get_image');
 const get_current_index = callable<[{ app_id: number, image_type: number }], number>('Backend.get_current_index');
 const get_max_index = callable<[{ app_id: number, image_type: number }], number>('Backend.get_max_index');
+const get_steamgriddb_id = callable<[{ app_id: number }], number>('Backend.get_steamgriddb_id');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -13,6 +14,15 @@ const WaitForElementTimeout = async (sel: string, parent = document, timeOut = 1
 
 const WaitForElementList = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))];
+
+async function getSteamGridDBId(appId: number): Promise<number | undefined> {
+    try {
+        return await get_steamgriddb_id({ app_id: appId });
+    } catch (e) {
+        console.error("[steam-easygrid 2] Failed to get SteamGridDB ID:", e);
+        return undefined;
+    }
+}
 
 async function OnPopupCreation(popup: any) {
     if (popup.m_strName === "SP Desktop_uid0") {
@@ -39,7 +49,7 @@ async function OnPopupCreation(popup: any) {
                                 const currentColl = collectionStore.GetCollection(collId);
                                 for (let j = 0; j < currentColl.allApps.length; j++) {
                                     gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                                    const newImage = await get_image({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true });
+                                    const newImage = await get_image({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true, is_replace_collection: true });
                                     if (newImage !== "") {
                                         const newImageParts = newImage.split(";", 2);
                                         SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], newImageParts[0], 0);
@@ -93,9 +103,10 @@ async function OnPopupCreation(popup: any) {
                             const maxGridNum = await get_max_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 0 });
 
                             const searchingDiv = document.createElement("div");
+                            const steamGridDBId = await getSteamGridDBId(uiStore.currentGameListSelection.nAppId);
                             searchingDiv.className = "easygrid-panel";
                             searchingDiv.style.cssText = "z-index: 999;";
-                            searchingDiv.innerHTML = `<br><br><br><input id="hero_num" type="number" min="-1" max="${maxHeroNum}" value="${currentHeroNum}"><input id="hero_r" type="button" value="R"><br><input id="logo_num" type="number" min="-1" max="${maxLogoNum}" value="${currentLogoNum}"><input id="logo_r" type="button" value="R"><br><input id="grid_num" type="number" min="-1" max="${maxGridNum}" value="${currentGridNum}"><input id="grid_r" type="button" value="R"><br><input id="close_panel" type="button" value="Close"><br><img id="grid_img" width="70">`;
+                            searchingDiv.innerHTML = `<br><br><br><a href="https://www.steamgriddb.com/game/${steamGridDBId}" style="color: #f87171" target="_blank">SteamGridDB</a><br><div style="display: grid; grid-template-columns: auto 1fr; gap: 0px; align-items: center;"><label for="hero_num">Hero:</label><div style="display: flex; gap: 0px;"><input id="hero_num" type="number" min="-1" max="${maxHeroNum}" value="${currentHeroNum}" style="flex: 1;"><input id="hero_r" type="button" value="R"></div><label for="logo_num">Logo:</label><div style="display: flex; gap: 0px;"><input id="logo_num" type="number" min="-1" max="${maxLogoNum}" value="${currentLogoNum}" style="flex: 1;"><input id="logo_r" type="button" value="R"></div><label for="grid_num">Grid:</label><div style="display: flex; gap: 0px;"><input id="grid_num" type="number" min="-1" max="${maxGridNum}" value="${currentGridNum}" style="flex: 1;"><input id="grid_r" type="button" value="R"></div></div><br><input id="close_panel" type="button" value="Close" style="width: 100%"><br><img id="grid_img" width="210">`;
                             topCapsuleDiv.appendChild(searchingDiv);
 
                             searchingDiv.querySelector("input#hero_num").addEventListener("change", async (event) => {

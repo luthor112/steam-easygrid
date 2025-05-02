@@ -143,18 +143,29 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         url_list = []
 
         headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
-        query_param = get_config()["extra_config"]
-        response = requests.get(f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}", params=query_param, headers=headers)
+        page = 0
 
-        if response.status_code == 200:
-            data = response.json()
-            if data["success"] and len(data["data"]) > 0:
-                for i in range(len(data["data"])):
-                    url_list.append(data["data"][i]["url"])
+        while True:
+            query_param = get_config()[f"{type_dict[image_type]}_config"]
+            query_param["page"] = page
+            query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
+            url = f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}?{query_string}"
+            response = requests.get(url, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+                if data["success"] and len(data["data"]) > 0:
+                    for item in data["data"]:
+                        url_list.append(item["url"])
+                    if len(data["data"]) < 50:
+                        break
+                    page += 1
+                else:
+                    logger.log("get_cached_file(): Unsuccessful - 'success' is false or no data")
+                    break
             else:
-                logger.log("get_cached_file(): Unsuccessful - 'success' is false or no data")
-        else:
-            logger.log(f"get_cached_file(): Unsuccessful - HTTP {response.status_code}")
+                logger.log(f"get_cached_file(): Unsuccessful - HTTP {response.status_code}")
+                break
 
         if len(url_list) > 0:
             game_db["games"][app_id_str][type_dict[image_type]] = url_list
@@ -178,7 +189,10 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
     ftype = ""
     if "." in image_url:
-        ftype = image_url[image_url.rfind(".")+1:]
+        # ftype = image_url[image_url.rfind(".")+1:]
+        # if ftype == "webp":
+        #     ftype = "png"
+        ftype = "png"
     logger.log(f"get_cached_file(): Image filetype is {ftype}")
     fname = os.path.join(get_cache_dir(), f"{app_id}_{image_type}_{image_num}.{ftype}")
     if not os.path.exists(fname):
@@ -201,8 +215,11 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
 class Backend:
     @staticmethod
-    def get_image(app_name, app_id, image_type, image_num, set_current):
+    def get_image(app_name, app_id, image_type, image_num, set_current, is_replace_collection = False):
         logger.log(f"get_image() called for app {app_name} with ID {app_id} and type {image_type} and index {image_num}")
+        curr_image = get_current_image_num(app_id, image_type)
+        if is_replace_collection and ((not get_config()["replace_custom_images"] and curr_image != -1) or app_id in get_config()["appids_excluded_from_replacement"]):
+            image_num = curr_image
         cached_file = get_cached_file(app_name, app_id, image_type, image_num, set_current)
 
         if cached_file is not None:
@@ -225,6 +242,16 @@ class Backend:
         max_num = get_max_image_num(app_id, image_type)
         logger.log(f"get_max_index() -> {max_num}")
         return max_num
+
+    @staticmethod
+    def get_steamgriddb_id(app_id: int) -> int:
+        try:
+            app_id_str = str(app_id)
+            if app_id_str in game_db["overrides"]:
+                return game_db["overrides"][app_id_str]
+            return None
+        except:
+            return None
 
 class Plugin:
     def _front_end_loaded(self):

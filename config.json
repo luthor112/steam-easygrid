@@ -1,5 +1,38 @@
 {
     "api_key": "",
     "display_name_fallback": true,
-    "extra_config": {}
+    "replace_custom_images": true,
+    "appids_excluded_from_replacement": [],
+    "grids_config": {
+        "nsfw": "false",
+        "humor": "any",
+        "epilepsy": "any",
+        "types": "static,animated",
+        "mimes": "image/webp,image/png,image/jpeg",
+        "styles": "alternate,blurred,white_logo,material,no_logo"
+    },
+    "heroes_config": {
+        "nsfw": "false",
+        "humor": "any",
+        "epilepsy": "any",
+        "types": "static,animated",
+        "mimes": "image/webp,image/png,image/jpeg",
+        "styles": "alternate,blurred,material"
+    },
+    "logos_config": {
+        "nsfw": "false",
+        "humor": "any",
+        "epilepsy": "any",
+        "types": "static,animated",
+        "mimes": "image/webp,image/png",
+        "styles": "official,white,black,custom"
+    },
+    "icons_config": {
+        "nsfw": "false",
+        "humor": "any",
+        "epilepsy": "any",
+        "types": "static,animated",
+        "mimes": "image/png,image/vnd.microsoft.icon",
+        "styles": "official,custom"
+    }
 }
