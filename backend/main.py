@@ -2,6 +2,7 @@ import Millennium, PluginUtils # type: ignore
 logger = PluginUtils.Logger()
 
 import base64
+import glob
 import json
 import os
 import requests
@@ -71,6 +72,13 @@ def get_max_image_num(app_id, image_type):
         if type_dict[image_type] in game_db["games"][app_id_str]:
             return len(game_db["games"][app_id_str][type_dict[image_type]])-1
     return -1
+
+def delete_app_from_db(app_id):
+    global game_db
+    app_id_str = str(app_id)
+    if app_id_str in game_db["games"]:
+        del game_db["games"][app_id_str]
+        save_game_db()
 
 ################
 # SGDB INTEROP #
@@ -237,6 +245,14 @@ class Backend:
         max_num = get_max_image_num(app_id, image_type)
         logger.log(f"get_max_index() -> {max_num}")
         return max_num
+
+    @staticmethod
+    def purge_cache(app_id):
+        logger.log(f"purge_cache() called for app {app_id}")
+        delete_app_from_db(app_id)
+        for f in glob.glob(os.path.join(get_cache_dir(), f"{app_id}_*")):
+            os.remove(f)
+        return True
 
     @staticmethod
     def get_steamgriddb_id(app_id: int) -> int:
