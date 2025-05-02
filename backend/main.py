@@ -144,9 +144,9 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
         headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
         page = 0
+        query_param = get_config()[f"{type_dict[image_type]}_config"]
 
         while True:
-            query_param = get_config()[f"{type_dict[image_type]}_config"]
             query_param["page"] = page
             query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
             url = f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}?{query_string}"
@@ -187,12 +187,7 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
     image_url = game_db["games"][app_id_str][type_dict[image_type]][image_num]
     logger.log(f"get_cached_file(): Image URL is {image_url}")
 
-    ftype = ""
-    if "." in image_url:
-        # ftype = image_url[image_url.rfind(".")+1:]
-        # if ftype == "webp":
-        #     ftype = "png"
-        ftype = "png"
+    ftype = "png"
     logger.log(f"get_cached_file(): Image filetype is {ftype}")
     fname = os.path.join(get_cache_dir(), f"{app_id}_{image_type}_{image_num}.{ftype}")
     if not os.path.exists(fname):
