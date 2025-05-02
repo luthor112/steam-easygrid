@@ -24,14 +24,24 @@ async function getSteamGridDBId(appId: number): Promise<number | undefined> {
     }
 }
 
+async function sleep(msec) {
+    return new Promise(resolve => setTimeout(resolve, msec));
+}
+
 async function OnPopupCreation(popup: any) {
     if (popup.m_strName === "SP Desktop_uid0") {
-        const mainTabs = await WaitForElementList(`div.${findModule(e => e.SuperNavMenu).SuperNavMenu}`, popup.m_popup.document);
-        const libraryButton = mainTabs.find(el => el.textContent === findModule(e => e.MainTabsLibrary).MainTabsLibrary);
-        const gameList = await WaitForElement('div.ReactVirtualized__Grid__innerScrollContainer', popup.m_popup.document);
+        var mwbm = undefined;
+        while (!mwbm) {
+            console.log("[steam-easygrid 2] Waiting for MainWindowBrowserManager");
+            try {
+                mwbm = MainWindowBrowserManager;
+            } catch {
+                await sleep(100);
+            }
+        }
 
-        libraryButton.addEventListener("click", async () => {
-            setTimeout(async () => {
+        MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL, previousURL) => {
+            if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home") {
                 const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
                 const oldGridButton = headerDiv.querySelector('div.easygrid-button');
                 if (!oldGridButton) {
@@ -79,11 +89,7 @@ async function OnPopupCreation(popup: any) {
                         );
                     });
                 }
-            }, 1000);
-        });
-
-        gameList.addEventListener("click", async () => {
-            setTimeout(async () => {
+            } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/app/")) {
                 const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
                 if (!topCapsuleDiv.classList.contains("easygrid-header")) {
                     topCapsuleDiv.addEventListener("dblclick", async () => {
@@ -186,7 +192,7 @@ async function OnPopupCreation(popup: any) {
                     });
                     topCapsuleDiv.classList.add("easygrid-header");
                 }
-            }, 1000);
+            }
         });
     }
 }
