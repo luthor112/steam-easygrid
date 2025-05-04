@@ -90,6 +90,45 @@ async function OnPopupCreation(popup: any) {
                         );
                     });
                 }
+            } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/")) {
+                const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
+                const oldGridButton = collOptionsDiv.querySelector('div.easygrid-button');
+                if (!oldGridButton) {
+                    const gridRstButton = popup.m_popup.document.createElement("div");
+                    gridRstButton.className = `${findModule(e => e.MenuButtonContainer).MenuButtonContainer} easygrid-button`;
+                    gridRstButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">Rst</div>`;
+                    collOptionsDiv.insertBefore(gridRstButton, collOptionsDiv.firstChild.nextSibling);
+
+                    const gridButton = popup.m_popup.document.createElement("div");
+                    gridButton.className = `${findModule(e => e.MenuButtonContainer).MenuButtonContainer} easygrid-button`;
+                    gridButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">SGDB</div>`;
+                    collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild.nextSibling);
+
+                    gridButton.addEventListener("click", async () => {
+                        const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+                        for (let j = 0; j < currentColl.allApps.length; j++) {
+                            gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
+                            const newImage = await get_image({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true, is_replace_collection: true });
+                            if (newImage !== "") {
+                                const newImageParts = newImage.split(";", 2);
+                                SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], newImageParts[0], 0);
+                            }
+                        }
+                        gridButton.firstChild.innerHTML = "Done!";
+                        console.log("[steam-easygrid 2] Grids replaced for", uiStore.currentGameListSelection.strCollectionId);
+                    });
+
+                    gridRstButton.addEventListener("click", async () => {
+                        const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+                        for (let j = 0; j < currentColl.allApps.length; j++) {
+                            gridRstButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
+                            SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
+                            await get_image({ app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: -1, set_current: true });
+                        }
+                        gridRstButton.firstChild.innerHTML = "Done!";
+                        console.log("[steam-easygrid 2] Grids cleared for", uiStore.currentGameListSelection.strCollectionId);
+                    });
+                }
             } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/app/")) {
                 const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
                 if (!topCapsuleDiv.classList.contains("easygrid-header")) {
