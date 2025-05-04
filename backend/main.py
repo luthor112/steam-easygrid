@@ -161,8 +161,16 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
         fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list)
 
+        prioritize_animated = get_config().get("prioritize_animated", False)
+        combined_urls = []
+        if prioritize_animated:
+            combined_urls.extend(animated_url_list)
+            combined_urls.extend([url for url in url_list if url not in animated_url_list])
+        else:
+            combined_urls = url_list
+
         final_url_list = {}
-        for i, url in enumerate(url_list):
+        for i, url in enumerate(combined_urls):
             type = "animated" if url in animated_url_list else "static"
             final_url_list[str(i)] = {"url": url, "type": type}
 
@@ -243,7 +251,11 @@ class Backend:
             if (not get_config()["replace_custom_images"] and curr_image != -1) or app_id in get_config()["appids_excluded_from_replacement"]:
                 cached_file = get_cached_file(app_name, app_id, image_type, curr_image, set_current)
             elif get_config()["prioritize_animated"]:
-                images = game_db["games"][str(app_id)][type_dict[image_type]]
+                try:
+                    images = game_db["games"][str(app_id)][type_dict[image_type]]
+                except KeyError as e:
+                    logger.log(f"get_image() -> No {type_dict[image_type]} found for {app_id}: {app_name}")
+                    images = {}
                 for i, image in images.items():
                     if image["type"] == "animated":
                         cached_file = get_cached_file(app_name, app_id, image_type, int(i), set_current)
