@@ -191,7 +191,10 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         logger.log(f"get_cached_file(): Invalid index {image_num}")
         return None
 
-    image_url = game_db["games"][app_id_str][type_dict[image_type]][str(image_num)]["url"]
+    try:
+        image_url = game_db["games"][app_id_str][type_dict[image_type]][str(image_num)]["url"]
+    except KeyError:
+        image_url = game_db["games"][app_id_str][type_dict[image_type]][image_num]
     logger.log(f"get_cached_file(): Image URL is {image_url}")
 
     ftype = "png"
@@ -253,13 +256,12 @@ class Backend:
             elif get_config()["prioritize_animated"]:
                 try:
                     images = game_db["games"][str(app_id)][type_dict[image_type]]
+	                for i, image in images.items():
+	                    if image["type"] == "animated":
+	                        cached_file = get_cached_file(app_name, app_id, image_type, int(i), set_current)
+	                        break
                 except KeyError as e:
-                    logger.log(f"get_image() -> No {type_dict[image_type]} found for {app_id}: {app_name}")
-                    images = {}
-                for i, image in images.items():
-                    if image["type"] == "animated":
-                        cached_file = get_cached_file(app_name, app_id, image_type, int(i), set_current)
-                        break
+					logger.log(f"get_image() -> No {type_dict[image_type]} found or old game_db for {app_id}: {app_name}")
 
         if cached_file is not None:
             logger.log("get_image() -> Image exists, returning encoded data")
