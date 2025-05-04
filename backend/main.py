@@ -256,12 +256,12 @@ class Backend:
             elif get_config()["prioritize_animated"]:
                 try:
                     images = game_db["games"][str(app_id)][type_dict[image_type]]
-	                for i, image in images.items():
-	                    if image["type"] == "animated":
-	                        cached_file = get_cached_file(app_name, app_id, image_type, int(i), set_current)
-	                        break
+                    for i, image in images.items():
+                        if image["type"] == "animated":
+                            cached_file = get_cached_file(app_name, app_id, image_type, int(i), set_current)
+                            break
                 except KeyError as e:
-					logger.log(f"get_image() -> No {type_dict[image_type]} found or old game_db for {app_id}: {app_name}")
+                    logger.log(f"get_image() -> No {type_dict[image_type]} found or old game_db for {app_id}: {app_name}")
 
         if cached_file is not None:
             logger.log("get_image() -> Image exists, returning encoded data")
