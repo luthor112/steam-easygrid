@@ -193,7 +193,7 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
     try:
         image_url = game_db["games"][app_id_str][type_dict[image_type]][str(image_num)]["url"]
-    except KeyError:
+    except:
         image_url = game_db["games"][app_id_str][type_dict[image_type]][image_num]
     logger.log(f"get_cached_file(): Image URL is {image_url}")
 
@@ -260,7 +260,7 @@ class Backend:
                         if image["type"] == "animated":
                             cached_file = get_cached_file(app_name, app_id, image_type, int(i), set_current)
                             break
-                except KeyError as e:
+                except:
                     logger.log(f"get_image() -> No {type_dict[image_type]} found or old game_db for {app_id}: {app_name}")
 
         if cached_file is not None:
