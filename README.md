@@ -58,12 +58,11 @@ Made with [contrib.rocks](https://contrib.rocks).
 # Using Grid images from SteamGridDB for entire Collections - from a Collection
 
 - Select a collection (using the Collections page or the left pane)
-- Search for the `SGDB` and `Rst` buttons, they should look lik this (on the default skin):
+- Search for the `SGDB` button, it should look like this (on the default skin):
 
-![SGDB and Rst buttons](screenshots/sgdb-coll-buttons.png)
+![SGDB button](screenshots/sgdb-coll-button.png)
 
-- Click the `SGDB` button to replace all Grid images in the collection
-- Click the `Rst` button to reset all Grid images in the collection
+- Click the `SGDB` button and select your course of action: replace or reset all Grid images in the collection
 - The progress will be displayed while working
 
 # Using Headers (heroes), Logos and Grids from SteamGridDB
