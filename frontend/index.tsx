@@ -1,4 +1,4 @@
-import { callable, findModule, Millennium, Menu, MenuItem, showContextMenu, DialogButton } from "@steambrew/client";
+import { callable, findModule, sleep, Millennium, Menu, MenuItem, showContextMenu, DialogButton } from "@steambrew/client";
 import { render } from "react-dom";
 
 // Backend functions
@@ -24,10 +24,6 @@ async function getSteamGridDBId(appId: number): Promise<number | undefined> {
         console.error("[steam-easygrid 2] Failed to get SteamGridDB ID:", e);
         return undefined;
     }
-}
-
-async function sleep(msec) {
-    return new Promise(resolve => setTimeout(resolve, msec));
 }
 
 async function OnPopupCreation(popup: any) {
@@ -95,8 +91,6 @@ async function OnPopupCreation(popup: any) {
                 const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
                 if (!oldGridButton) {
                     const gridButton = popup.m_popup.document.createElement("div");
-                    //gridButton.className = `${findModule(e => e.MenuButtonContainer).MenuButtonContainer} easygrid-button`;
-                    //gridButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">SGDB</div>`;
                     render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>, gridButton);
                     collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild.nextSibling);
 
@@ -155,7 +149,6 @@ async function OnPopupCreation(popup: any) {
                             const steamGridDBId = await getSteamGridDBId(uiStore.currentGameListSelection.nAppId);
                             searchingDiv.className = "easygrid-panel";
                             searchingDiv.style.cssText = "z-index: 999;";
-                            //searchingDiv.innerHTML = `<br><br><br><a href="https://www.steamgriddb.com/game/${steamGridDBId}" style="color: #f87171" target="_blank">SteamGridDB</a><br><div style="display: grid; grid-template-columns: auto 1fr; gap: 0px; align-items: center;"><label for="hero_num">Hero:</label><div style="display: flex; gap: 0px;"><input id="hero_num" type="number" min="-1" max="${maxHeroNum}" value="${currentHeroNum}" style="flex: 1;"> (Max: ${maxHeroNum}) <input id="hero_r" type="button" value="R"></div><label for="logo_num">Logo:</label><div style="display: flex; gap: 0px;"><input id="logo_num" type="number" min="-1" max="${maxLogoNum}" value="${currentLogoNum}" style="flex: 1;"> (Max: ${maxLogoNum}) <input id="logo_r" type="button" value="R"></div><label for="grid_num">Grid:</label><div style="display: flex; gap: 0px;"><input id="grid_num" type="number" min="-1" max="${maxGridNum}" value="${currentGridNum}" style="flex: 1;"> (Max: ${maxGridNum}) <input id="grid_r" type="button" value="R"></div></div><br><input id="purge_btn" type="button" value="Purge Cache" style="width: 100%"><br><input id="close_panel" type="button" value="Close" style="width: 100%"><br><img id="grid_img" width="210">`;
                             render(<>
                                        <br />
                                        <br />
