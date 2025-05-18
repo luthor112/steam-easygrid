@@ -4,6 +4,6 @@
     "name": "steam-easygrid",
     "common_name": "Easy SteamGrid",
     "description": "Quick and easy SteamGridDB integration",
-    "version": "2.2.1",
+    "version": "2.2.2",
     "include": ["config.json"]
 }

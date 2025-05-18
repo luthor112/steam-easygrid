@@ -1,4 +1,5 @@
-import { callable, findModule, Millennium, Menu, MenuItem, showContextMenu } from "@steambrew/client";
+import { callable, findModule, Millennium, Menu, MenuItem, showContextMenu, DialogButton } from "@steambrew/client";
+import { render } from "react-dom";
 
 // Backend functions
 const get_image = callable<[{ app_name: string, app_id: number, image_type: number, image_num: number, set_current: boolean, is_replace_collection?: boolean }], string>('Backend.get_image');
@@ -44,11 +45,10 @@ async function OnPopupCreation(popup: any) {
         MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL, previousURL) => {
             if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home") {
                 const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
-                const oldGridButton = headerDiv.querySelector('div.easygrid-button');
+                const oldGridButton = headerDiv.querySelector('button.easygrid-button');
                 if (!oldGridButton) {
                     const gridButton = popup.m_popup.document.createElement("div");
-                    gridButton.className = `${findModule(e => e.MenuButtonContainer).MenuButtonContainer} easygrid-button`;
-                    gridButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">SGDB</div>`;
+                    render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>, gridButton);
                     headerDiv.insertBefore(gridButton, headerDiv.firstChild.nextSibling.nextSibling);
                     
                     gridButton.addEventListener("click", async () => {
@@ -92,11 +92,12 @@ async function OnPopupCreation(popup: any) {
                 }
             } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/")) {
                 const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
-                const oldGridButton = collOptionsDiv.querySelector('div.easygrid-button');
+                const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
                 if (!oldGridButton) {
                     const gridButton = popup.m_popup.document.createElement("div");
-                    gridButton.className = `${findModule(e => e.MenuButtonContainer).MenuButtonContainer} easygrid-button`;
-                    gridButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">SGDB</div>`;
+                    //gridButton.className = `${findModule(e => e.MenuButtonContainer).MenuButtonContainer} easygrid-button`;
+                    //gridButton.innerHTML = `<div class="${findModule(e => e.GameInfoButton).MenuButton} Focusable" tabindex="0" role="button">SGDB</div>`;
+                    render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>, gridButton);
                     collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild.nextSibling);
 
                     gridButton.addEventListener("click", async () => {
