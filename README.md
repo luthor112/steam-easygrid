@@ -4,7 +4,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 ## Features
 - Replace or reset grid images for all apps in a collection with ones from SteamGridDB
-- Switch the header image, logo or grid image of an app with ones from SteamGridDB via a panel opened by double-clicking the header
+- Switch the header image, logo or grid image of an app with ones from SteamGridDB via a window opened by double-clicking the header
 
 ## Configuration
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
@@ -20,8 +20,6 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
 
 ## Known issues:
-- Double clicking the header will sometimes open the panel twice
-    - In this case, just close one of them
 - Be patient, every change can take a couple seconds
 
 ## Contributors
@@ -68,22 +66,20 @@ Made with [contrib.rocks](https://contrib.rocks).
 # Using Headers (heroes), Logos and Grids from SteamGridDB
 
 - Double-click the header of an app
-- A small panel should appear with the settings
-    - The panel appears on the right side of the header (on the default skin) as such:
+- A window should appear with the settings
+    - The window appears as such:
 
-![Settings panel](screenshots/header-panel.png)
+![Settings window](screenshots/header-window.png)
 
 - The following controls are shown:
-    - Number selectors for the Hero (header), Logo and Grid; Reset button (sets it to -1)
-    - Purge Cache button: Purges all cached links and files for the given app, forcing a new search and new downloads
+    - Number selectors for the Hero (header), Logo and Grid
+    - `Purge Cache` button: Purges all cached links and files for the given app, forcing a new search and new downloads
         - This is a good first try when something stops working
-    - Close button
-    - Below the Close button, the currently selected Grid image is displayed (if any)
+    - Below the `Purge Cache` button, the currently selected Grid image is displayed (if any)
 - Image numbers start at 0, with -1 meaning "not set"
 
 ## Troubleshooting
 
 When someting stop working, a good first step is to try pruging the cache of the given app:
 - Double-click the header of the app
-- Click `Purge Cache`, this will purge cached links and files
-- Double-click the header again, this should force a new search on SGDB, hopefully fixing the problem
+- Click `Purge Cache`, this will purge cached links and files, hopefully fixing the problem
