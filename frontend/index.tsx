@@ -132,7 +132,7 @@ async function OnPopupCreation(popup: any) {
                 const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
                 if (!topCapsuleDiv.classList.contains("easygrid-header")) {
                     topCapsuleDiv.addEventListener("dblclick", async () => {
-                        const EasyGridComponent: React.FC = () => {
+                        const EasyGridComponent: React.FC = (props) => {
                             const [displayName, setDisplayName] = useState<string>("");
                             const [currentHeroNum, setCurrentHeroNum] = useState<number>(-1);
                             const [currentLogoNum, setCurrentLogoNum] = useState<number>(-1);
@@ -143,25 +143,27 @@ async function OnPopupCreation(popup: any) {
                             const [gridImageData, setGridImageData] = useState<string>("");
                             
                             const GetCurrentSettings = async () => {
-                                const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                                const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
-                                setDisplayName(currentApp.display_name);
+                                console.log("[steam-easygrid 3] props.appid =", props.appid);           // uiStore.currentGameListSelection.nAppId
+                                console.log("[steam-easygrid 3] props.appname =", props.appname);       // currentApp.display_name
+                                console.log("[steam-easygrid 3] props.imagetype =", props.imagetype);
+
+                                setDisplayName(props.appname);
                                 
-                                await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 1, image_num: -1, set_current: false });
-                                await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 2, image_num: -1, set_current: false });
-                                await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 0, image_num: -1, set_current: false });
+                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: 1, image_num: -1, set_current: false });
+                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: 2, image_num: -1, set_current: false });
+                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: 0, image_num: -1, set_current: false });
                                 
-                                setCurrentHeroNum(await get_current_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 1 }));
-                                setCurrentLogoNum(await get_current_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 2 }));
-                                const cgn = await get_current_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 0 });
+                                setCurrentHeroNum(await get_current_index({ app_id: props.appid, image_type: 1 }));
+                                setCurrentLogoNum(await get_current_index({ app_id: props.appid, image_type: 2 }));
+                                const cgn = await get_current_index({ app_id: props.appid, image_type: 0 });
                                 setCurrentGridNum(cgn);
                                 
-                                setMaxHeroNum(await get_max_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 1 }));
-                                setMaxLogoNum(await get_max_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 2 }));
-                                setMaxGridNum(await get_max_index({ app_id: uiStore.currentGameListSelection.nAppId, image_type: 0 }));
+                                setMaxHeroNum(await get_max_index({ app_id: props.appid, image_type: 1 }));
+                                setMaxLogoNum(await get_max_index({ app_id: props.appid, image_type: 2 }));
+                                setMaxGridNum(await get_max_index({ app_id: props.appid, image_type: 0 }));
                                 
                                 if (cgn !== -1) {
-                                    const currentImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: 0, image_num: cgn, set_current: false });
+                                    const currentImage = await get_image({ app_name: props.appname, app_id: props.appid, image_type: 0, image_num: cgn, set_current: false });
                                     if (currentImage !== "") {
                                         const currentImageParts = currentImage.split(";", 2);
                                         setGridImageData(`data:image/${currentImageParts[0]};base64,${currentImageParts[1]}`);
@@ -186,32 +188,29 @@ async function OnPopupCreation(popup: any) {
                                         break;
                                 }
 
-                                const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                                const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
-
                                 if (targetNum === -1) {
-                                    SteamClient.Apps.ClearCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, targetType);
-                                    await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: targetType, image_num: -1, set_current: true });
+                                    SteamClient.Apps.ClearCustomArtworkForApp(props.appid, targetType);
+                                    await get_image({ app_name: props.appname, app_id: props.appid, image_type: targetType, image_num: -1, set_current: true });
                                     if (targetType === 0) {
                                         setGridImageData("");
                                     }
-                                    console.log(`[steam-easygrid 3] ${event.target.id} reset for`, uiStore.currentGameListSelection.nAppId);
+                                    console.log(`[steam-easygrid 3] ${event.target.id} reset for`, props.appid);
                                 } else {
-                                    const newImage = await get_image({ app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: targetType, image_num: targetNum, set_current: true });
+                                    const newImage = await get_image({ app_name: props.appname, app_id: props.appid, image_type: targetType, image_num: targetNum, set_current: true });
                                     if (newImage !== "") {
                                         const newImageParts = newImage.split(";", 2);
-                                        SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], targetType);
+                                        SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], newImageParts[0], targetType);
                                         if (targetType === 0) {
                                             setGridImageData(`data:image/${newImageParts[0]};base64,${newImageParts[1]}`);
                                         }
-                                        console.log(`[steam-easygrid 3] ${event.target.id} replaced for`, uiStore.currentGameListSelection.nAppId);
+                                        console.log(`[steam-easygrid 3] ${event.target.id} replaced for`, props.appid);
                                     }
                                 }
                             };
                             
                             const PurgeImageCache = async () => {
                                 console.log("[steam-easygrid 3] Purging cache and reloading...");
-                                await purge_cache({ app_id: uiStore.currentGameListSelection.nAppId });
+                                await purge_cache({ app_id: props.appid });
                                 GetCurrentSettings();
                             };
                             
