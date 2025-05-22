@@ -80,6 +80,19 @@ def delete_app_from_db(app_id):
         del game_db["games"][app_id_str]
         save_game_db()
 
+def get_ui_selection_list(app_id, image_type):
+    global game_db
+    app_id_str = str(app_id)
+    selection_list = []
+    if app_id_str in game_db["games"]:
+        if type_dict[image_type] in game_db["games"][app_id_str]:
+            for i in range(len(game_db["games"][app_id_str][type_dict[image_type]])):
+                entry = game_db["games"][app_id_str][type_dict[image_type]][str(i)]
+                type = entry["type"] if "type" in entry else "static"
+                thumb_url = entry["thumb"] if "thumb" in entry else ""
+                selection_list.append([thumb_url, type])
+    return selection_list
+
 ################
 # SGDB INTEROP #
 ################
@@ -148,18 +161,19 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
     if type_dict[image_type] not in game_db["games"][app_id_str]:
         logger.log(f"get_cached_file(): No URLs cached for type {image_type} for app {app_id}")
-        url_list = []
         animated_url_list = []
+        url_list = []
+        thumb_list = []
 
         headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
         query_param = get_config()[f"{type_dict[image_type]}_config"]
 
         original_types = query_param["types"]
         query_param["types"] = "animated"
-        fetch_image_urls(headers, image_type, query_param, sgdb_id, animated_url_list)
+        fetch_image_urls(headers, image_type, query_param, sgdb_id, animated_url_list, None)
         query_param["types"] = original_types
 
-        fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list)
+        fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list, thumb_list)
 
         prioritize_animated = get_config().get("prioritize_animated", False)
         combined_urls = []
@@ -172,7 +186,8 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         final_url_list = {}
         for i, url in enumerate(combined_urls):
             type = "animated" if url in animated_url_list else "static"
-            final_url_list[str(i)] = {"url": url, "type": type}
+            thumb_idx = url_list.index(url)
+            final_url_list[str(i)] = {"url": url, "type": type, "thumb": thumb_list[thumb_idx]}
 
         if len(final_url_list) > 0:
             game_db["games"][app_id_str][type_dict[image_type]] = final_url_list
@@ -214,8 +229,7 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
     logger.log(f"get_cached_file() -> {fname}")
     return f"{ftype};{get_encoded_image(fname)}"
 
-
-def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list):
+def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list, thumb_list):
     page = 0
     while True:
         query_param["page"] = page
@@ -228,6 +242,8 @@ def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list):
             if data["success"] and len(data["data"]) > 0:
                 for item in data["data"]:
                     url_list.append(item["url"])
+                    if thumb_list is not None:
+                        thumb_list.append(item["thumb"])
                 if len(data["data"]) < 50:
                     break
                 page += 1
@@ -237,7 +253,6 @@ def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list):
         else:
             logger.log(f"get_cached_file(): Unsuccessful - HTTP {response.status_code} for url {response.url}")
             break
-
 
 ##############
 # INTERFACES #
@@ -301,6 +316,11 @@ class Backend:
             return None
         except:
             return None
+
+    @staticmethod
+    def get_thumb_list(app_id, image_type):
+        logger.log(f"get_thumb_list() called for app {app_id} and type {image_type}")
+        return json.dumps(get_ui_selection_list(app_id, image_type))
 
 class Plugin:
     def _front_end_loaded(self):

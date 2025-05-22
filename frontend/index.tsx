@@ -1,4 +1,4 @@
-import { callable, findModule, sleep, Millennium, Menu, MenuItem, showContextMenu, DialogButton, showModal, ModalRoot } from "@steambrew/client";
+import { callable, findModule, sleep, Millennium, Menu, MenuItem, showContextMenu, DialogButton, showModal, SidebarNavigation } from "@steambrew/client";
 import { render } from "react-dom";
 import React, { useState, useEffect } from "react";
 
@@ -8,6 +8,7 @@ const get_current_index = callable<[{ app_id: number, image_type: number }], num
 const get_max_index = callable<[{ app_id: number, image_type: number }], number>('Backend.get_max_index');
 const get_steamgriddb_id = callable<[{ app_id: number }], number>('Backend.get_steamgriddb_id');
 const purge_cache = callable<[{ app_id: number }], boolean>('Backend.purge_cache');
+const get_thumb_list = callable<[{ app_id: number, image_type: number }], string>('Backend.get_thumb_list');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -219,7 +220,7 @@ async function OnPopupCreation(popup: any) {
                             }, []);
                             
                             return (
-                                <ModalRoot closeModal={() => {}}>
+                                <div>
                                    <b>SteamGridDB for {displayName}</b><br />
                                    <div style={{display: "grid", gridTemplateColumns: "auto 1fr", gap: "0px", alignItems: "center"}}>
                                        <label for="hero_num">Hero:</label>
@@ -238,10 +239,16 @@ async function OnPopupCreation(popup: any) {
                                    <br />
                                    <input id="purge_btn" type="button" value="Purge Cache" style={{width: "100%"}} onClick={PurgeImageCache} /><br />
                                    <img id="grid_img" width="210" src={gridImageData} />
-                                </ModalRoot>
+                                </div>
                             );
                         };
-                        showModal(<EasyGridComponent />, popup.m_popup.window, { strTitle: "EasyGrid", bHideMainWindowForPopouts: false, bForcePopOut: true, popupHeight: 650, popupWidth: 350 });
+                        
+                        const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+                        const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+                        showModal(<SidebarNavigation pages={[{ title: <div>Hero</div>, content: <EasyGridComponent appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype="1" /> },
+                                                             { title: <div>Logo</div>, content: <EasyGridComponent appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype="2" /> },
+                                                             { title: <div>Grid</div>, content: <EasyGridComponent appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype="0" /> }]}
+                                                     showTitle={true} title={currentApp.display_name} />, popup.m_popup.window, { strTitle: "EasyGrid", bHideMainWindowForPopouts: false, bForcePopOut: true, popupHeight: 700, popupWidth: 1500 });
                     });
                     topCapsuleDiv.classList.add("easygrid-header");
                 }
