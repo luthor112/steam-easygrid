@@ -21,6 +21,8 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 ## Known issues:
 - Be patient, every change can take a couple seconds
+- The "Current" number does not update when clicking an image (or the "Reset" button), until you change pages and change back
+- The whole page might not update when clicking "Purge Cache", until you change pages and change back
 
 ## Contributors
 
