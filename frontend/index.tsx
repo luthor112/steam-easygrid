@@ -133,120 +133,89 @@ async function OnPopupCreation(popup: any) {
                 if (!topCapsuleDiv.classList.contains("easygrid-header")) {
                     topCapsuleDiv.addEventListener("dblclick", async () => {
                         const EasyGridComponent: React.FC = (props) => {
-                            const [displayName, setDisplayName] = useState<string>("");
-                            const [currentHeroNum, setCurrentHeroNum] = useState<number>(-1);
-                            const [currentLogoNum, setCurrentLogoNum] = useState<number>(-1);
-                            const [currentGridNum, setCurrentGridNum] = useState<number>(-1);
-                            const [maxHeroNum, setMaxHeroNum] = useState<number>(-1);
-                            const [maxLogoNum, setMaxLogoNum] = useState<number>(-1);
-                            const [maxGridNum, setMaxGridNum] = useState<number>(-1);
-                            const [gridImageData, setGridImageData] = useState<string>("");
+                            const containerStyle: React.CSSProperties = {
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                overflowX: 'hidden',
+                                overflowY: 'auto',
+                                padding: '10px',
+                                gap: '10px',
+                                width: '100%'
+                            };
+
+                            const imageStyle: React.CSSProperties = {
+                                width: '150px', // adjust as needed
+                                height: 'auto',
+                                objectFit: 'cover',
+                                borderRadius: '8px'
+                            };
+
+                            const [currentImageNum, setCurrentImageNum] = useState<number>(-1);
+                            const [maxImageNum, setMaxImageNum] = useState<number>(-1);
+                            const [thumbnailList, setThumbnailList] = useState([]);
                             
                             const GetCurrentSettings = async () => {
-                                console.log("[steam-easygrid 3] props.appid =", props.appid);           // uiStore.currentGameListSelection.nAppId
-                                console.log("[steam-easygrid 3] props.appname =", props.appname);       // currentApp.display_name
-                                console.log("[steam-easygrid 3] props.imagetype =", props.imagetype);
-
-                                setDisplayName(props.appname);
+                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: props.imagetype, image_num: -1, set_current: false });
                                 
-                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: 1, image_num: -1, set_current: false });
-                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: 2, image_num: -1, set_current: false });
-                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: 0, image_num: -1, set_current: false });
-                                
-                                setCurrentHeroNum(await get_current_index({ app_id: props.appid, image_type: 1 }));
-                                setCurrentLogoNum(await get_current_index({ app_id: props.appid, image_type: 2 }));
-                                const cgn = await get_current_index({ app_id: props.appid, image_type: 0 });
-                                setCurrentGridNum(cgn);
-                                
-                                setMaxHeroNum(await get_max_index({ app_id: props.appid, image_type: 1 }));
-                                setMaxLogoNum(await get_max_index({ app_id: props.appid, image_type: 2 }));
-                                setMaxGridNum(await get_max_index({ app_id: props.appid, image_type: 0 }));
-                                
-                                if (cgn !== -1) {
-                                    const currentImage = await get_image({ app_name: props.appname, app_id: props.appid, image_type: 0, image_num: cgn, set_current: false });
-                                    if (currentImage !== "") {
-                                        const currentImageParts = currentImage.split(";", 2);
-                                        setGridImageData(`data:image/${currentImageParts[0]};base64,${currentImageParts[1]}`);
-                                    }
-                                }
+                                setCurrentImageNum(await get_current_index({ app_id: props.appid, image_type: props.imagetype }));
+                                setMaxImageNum(await get_max_index({ app_id: props.appid, image_type: props.imagetype }));
+                                setThumbnailList(JSON.parse(await get_thumb_list({ app_id: props.appid, image_type: props.imagetype })));
                             };
-                            
-                            const SetCustomImage = async (event) => {
-                                const targetType = Number(event.target.dataset.imagetype);
-                                const targetNum = Number(event.target.value);
-                                console.log(`[steam-easygrid 3] ${event.target.id} selected:`, targetNum);
 
-                                switch(targetType) {
-                                    case 1:
-                                        setCurrentHeroNum(targetNum);
-                                        break;
-                                    case 2:
-                                        setCurrentLogoNum(targetNum);
-                                        break;
-                                    case 0:
-                                        setCurrentGridNum(targetNum);
-                                        break;
-                                }
-
-                                if (targetNum === -1) {
-                                    SteamClient.Apps.ClearCustomArtworkForApp(props.appid, targetType);
-                                    await get_image({ app_name: props.appname, app_id: props.appid, image_type: targetType, image_num: -1, set_current: true });
-                                    if (targetType === 0) {
-                                        setGridImageData("");
-                                    }
-                                    console.log(`[steam-easygrid 3] ${event.target.id} reset for`, props.appid);
-                                } else {
-                                    const newImage = await get_image({ app_name: props.appname, app_id: props.appid, image_type: targetType, image_num: targetNum, set_current: true });
-                                    if (newImage !== "") {
-                                        const newImageParts = newImage.split(";", 2);
-                                        SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], newImageParts[0], targetType);
-                                        if (targetType === 0) {
-                                            setGridImageData(`data:image/${newImageParts[0]};base64,${newImageParts[1]}`);
-                                        }
-                                        console.log(`[steam-easygrid 3] ${event.target.id} replaced for`, props.appid);
-                                    }
-                                }
-                            };
-                            
                             const PurgeImageCache = async () => {
                                 console.log("[steam-easygrid 3] Purging cache and reloading...");
                                 await purge_cache({ app_id: props.appid });
                                 GetCurrentSettings();
                             };
-                            
+
+                            const SetNewImage = async (e) => {
+                                const targetNum = Number(e.target.dataset.imageindex);
+                                console.log("[steam-easygrid 3] Setting image to:", targetNum);
+                                const newImage = await get_image({ app_name: props.appname, app_id: props.appid, image_type: props.imagetype, image_num: targetNum, set_current: true });
+                                if (newImage !== "") {
+                                    const newImageParts = newImage.split(";", 2);
+                                    SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], newImageParts[0], props.imagetype);
+                                }
+                            };
+
+                            const SetOriginalImage = async (e) => {
+                                console.log("[steam-easygrid 3] Resetting image...");
+                                SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
+                                await get_image({ app_name: props.appname, app_id: props.appid, image_type: props.imagetype, image_num: -1, set_current: true });
+                                setCurrentImageNum(-1);
+                            };
+
                             useEffect(() => {
                                 GetCurrentSettings();
                             }, []);
-                            
+
                             return (
                                 <div>
-                                   <b>SteamGridDB for {displayName}</b><br />
-                                   <div style={{display: "grid", gridTemplateColumns: "auto 1fr", gap: "0px", alignItems: "center"}}>
-                                       <label for="hero_num">Hero:</label>
-                                       <div style={{display: "flex", gap: "0px"}}>
-                                           <input id="hero_num" type="number" min="-1" max={maxHeroNum} value={currentHeroNum} style={{flex: "1"}} data-imagetype="1" onChange={SetCustomImage} /> (Max: {maxHeroNum})
-                                       </div>
-                                       <label for="logo_num">Logo:</label>
-                                       <div style={{display: "flex", gap: "0px"}}>
-                                           <input id="logo_num" type="number" min="-1" max={maxLogoNum} value={currentLogoNum} style={{flex: "1"}} data-imagetype="2" onChange={SetCustomImage} /> (Max: {maxLogoNum})
-                                       </div>
-                                       <label for="grid_num">Grid:</label>
-                                       <div style={{display: "flex", gap: "0px"}}>
-                                           <input id="grid_num" type="number" min="-1" max={maxGridNum} value={currentGridNum} style={{flex: "1"}} data-imagetype="0" onChange={SetCustomImage} /> (Max: {maxGridNum})
-                                       </div>
-                                   </div>
-                                   <br />
-                                   <input id="purge_btn" type="button" value="Purge Cache" style={{width: "100%"}} onClick={PurgeImageCache} /><br />
-                                   <img id="grid_img" width="210" src={gridImageData} />
+                                    App ID: {props.appid} / App Name: {props.appname} / Image Type: {props.imagetype} <br />
+                                    Current: {currentImageNum} / Max: {maxImageNum}
+                                    <DialogButton style={{width: "120px"}} onClick={SetOriginalImage}>Reset</DialogButton>
+                                    <DialogButton style={{width: "120px"}} onClick={PurgeImageCache}>Purge Cache</DialogButton> <br />
+                                    <div style={containerStyle}>
+                                        {thumbnailList.map((thumbData, index) => {
+                                            if (thumbData[1] === "static")
+                                                return (
+                                                    <img key={index} data-imageindex={index} src={thumbData[0]} alt={thumbData[1]} style={imageStyle} onClick={SetNewImage} />
+                                                );
+                                            else
+                                                return (
+                                                    <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData[0]} alt={thumbData[1]} style={imageStyle} onClick={SetNewImage} />
+                                                );
+                                        })}
+                                    </div>
                                 </div>
                             );
                         };
-                        
+
                         const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
                         const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
-                        showModal(<SidebarNavigation pages={[{ title: <div>Hero</div>, content: <EasyGridComponent appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype="1" /> },
-                                                             { title: <div>Logo</div>, content: <EasyGridComponent appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype="2" /> },
-                                                             { title: <div>Grid</div>, content: <EasyGridComponent appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype="0" /> }]}
+                        showModal(<SidebarNavigation pages={[{ title: <div>Hero</div>, content: <EasyGridComponent key="hero_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={1} /> },
+                                                             { title: <div>Logo</div>, content: <EasyGridComponent key="logo_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={2} /> },
+                                                             { title: <div>Grid</div>, content: <EasyGridComponent key="grid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={0} /> }]}
                                                      showTitle={true} title={currentApp.display_name} />, popup.m_popup.window, { strTitle: "EasyGrid", bHideMainWindowForPopouts: false, bForcePopOut: true, popupHeight: 700, popupWidth: 1500 });
                     });
                     topCapsuleDiv.classList.add("easygrid-header");

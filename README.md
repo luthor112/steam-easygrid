@@ -4,7 +4,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 ## Features
 - Replace or reset grid images for all apps in a collection with ones from SteamGridDB
-- Switch the header image, logo or grid image of an app with ones from SteamGridDB via a window opened by double-clicking the header
+- Switch the hero (header) image, logo or grid image of an app with ones from SteamGridDB via a window opened by double-clicking the header
 
 ## Configuration
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
@@ -63,19 +63,16 @@ Made with [contrib.rocks](https://contrib.rocks).
 - Click the `SGDB` button and select your course of action: replace or reset all Grid images in the collection
 - The progress will be displayed while working
 
-# Using Headers (heroes), Logos and Grids from SteamGridDB
+# Using Heroes (headers), Logos and Grids from SteamGridDB
 
 - Double-click the header of an app
 - A window should appear with the settings
-    - The window appears as such:
-
-![Settings window](screenshots/header-window.png)
-
-- The following controls are shown:
-    - Number selectors for the Hero (header), Logo and Grid
+- In the left pane, secect the type of image you want to replace
+- In the right page, click the image you want to use
+- The following extra controls are shown:
+    - `Reset` button: Resets the image back to the default one
     - `Purge Cache` button: Purges all cached links and files for the given app, forcing a new search and new downloads
         - This is a good first try when something stops working
-    - Below the `Purge Cache` button, the currently selected Grid image is displayed (if any)
 - Image numbers start at 0, with -1 meaning "not set"
 
 ## Troubleshooting
@@ -83,3 +80,8 @@ Made with [contrib.rocks](https://contrib.rocks).
 When someting stop working, a good first step is to try pruging the cache of the given app:
 - Double-click the header of the app
 - Click `Purge Cache`, this will purge cached links and files, hopefully fixing the problem
+
+If purging the cache doesn't fix the problem, try the nuclear option:
+- Delete the database stored at `<STEAM>\plugins\steam-easygrid\game_db.json`
+- Delete the cache stored at `<STEAM>\plugins\steam-easygrid\artcache`
+- Restart Steam
