@@ -93,6 +93,13 @@ def get_ui_selection_list(app_id, image_type):
                 selection_list.append([thumb_url, type])
     return selection_list
 
+def get_width_mult_config(app_id, image_type):
+    wtype = f"{type_dict[image_type]}_width_mult"
+    if wtype in get_config():
+        return get_config()[wtype]
+    else:
+        return 5
+
 ################
 # SGDB INTEROP #
 ################
@@ -321,6 +328,13 @@ class Backend:
     def get_thumb_list(app_id, image_type):
         logger.log(f"get_thumb_list() called for app {app_id} and type {image_type}")
         return json.dumps(get_ui_selection_list(app_id, image_type))
+
+    @staticmethod
+    def get_width_mult(app_id, image_type):
+        logger.log(f"get_width_mult() called for app {app_id} and type {image_type}")
+        width_mult = get_width_mult_config(app_id, image_type)
+        logger.log(f"get_width_mult() -> {width_mult}")
+        return width_mult
 
 class Plugin:
     def _front_end_loaded(self):

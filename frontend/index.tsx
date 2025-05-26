@@ -9,6 +9,7 @@ const get_max_index = callable<[{ app_id: number, image_type: number }], number>
 const get_steamgriddb_id = callable<[{ app_id: number }], number>('Backend.get_steamgriddb_id');
 const purge_cache = callable<[{ app_id: number }], boolean>('Backend.purge_cache');
 const get_thumb_list = callable<[{ app_id: number, image_type: number }], string>('Backend.get_thumb_list');
+const get_width_mult = callable<[{ app_id: number, image_type: number }], number>('Backend.get_width_mult');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -131,20 +132,8 @@ function getEasyGridComponent(popup: any) {
             width: '100%'
         };
 
-
-        let imageWidthMult = 0.05;
-        switch (props.imagetype) {
-            case 0:
-                imageWidthMult = 0.05;
-                break;
-            case 1:
-                imageWidthMult = 0.1;
-                break;
-            case 2:
-                imageWidthMult = 0.07;
-        }
         const imageWrapperStyle: React.CSSProperties = {
-            width: (popup.m_popup.window.screen.width * imageWidthMult) + 'px',
+            width: (popup.m_popup.window.screen.width * props.imageWidthMult) + 'px',
             minWidth: "150px",
             height: "auto",
         };
@@ -258,11 +247,15 @@ async function renderApp(popup: any) {
 
             const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
             const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+            const heroWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 1}) / 100;
+            const logoWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 2}) / 100;
+            const gridWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 0}) / 100;
+
             showModal(
                 <SidebarNavigation pages={[
-                    {title: <div>Hero</div>, content: <EasyGridComponent key="hero_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={1}/>},
-                    {title: <div>Logo</div>, content: <EasyGridComponent key="logo_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={2}/>},
-                    {title: <div>Grid</div>, content: <EasyGridComponent key="grid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={0}/>}
+                    {title: <div>Hero</div>, content: <EasyGridComponent key="hero_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={1} imageWidthMult={heroWidthMult}/>},
+                    {title: <div>Logo</div>, content: <EasyGridComponent key="logo_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={2} imageWidthMult={logoWidthMult}/>},
+                    {title: <div>Grid</div>, content: <EasyGridComponent key="grid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={0} imageWidthMult={gridWidthMult}/>}
                 ]} showTitle={true} title={currentApp.display_name}/>,
                 popup.m_popup.window, {strTitle: "EasyGrid", bHideMainWindowForPopouts: false, bForcePopOut: true, popupHeight: 700, popupWidth: 1500}
             );

@@ -35,5 +35,8 @@
         "types": "static,animated",
         "mimes": "image/png,image/vnd.microsoft.icon",
         "styles": "official,custom"
-    }
+    },
+    "grids_width_mult": 5,
+    "heroes_width_mult": 10,
+    "logos_width_mult": 7
 }
