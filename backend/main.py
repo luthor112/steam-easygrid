@@ -241,7 +241,7 @@ def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list, thumb_
     while True:
         query_param["page"] = page
         # Only get vertical grids if the type is grids
-        if image_type == 0
+        if image_type == 0:
             query_param["dimensions"] = "600x900"
 
         query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
