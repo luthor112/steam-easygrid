@@ -240,8 +240,10 @@ def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list, thumb_
     page = 0
     while True:
         query_param["page"] = page
-        # Only get vertical grids
-        query_param["dimensions"] = "600x900"
+        # Only get vertical grids if the type is grids
+        if image_type == 0
+            query_param["dimensions"] = "600x900"
+
         query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
         url = f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}?{query_string}"
         response = requests.get(url, headers=headers)
