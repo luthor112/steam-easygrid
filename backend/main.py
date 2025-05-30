@@ -242,6 +242,7 @@ def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list, thumb_
         query_param["page"] = page
         query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
         url = f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}?{query_string}"
+        logger.log(f"HTTP GET: {url}")
         response = requests.get(url, headers=headers)
 
         if response.status_code == 200:
