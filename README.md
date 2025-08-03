@@ -77,11 +77,14 @@ Made with [contrib.rocks](https://contrib.rocks).
     - `Reset` button: Resets the image back to the default one
     - `Purge Cache` button: Purges all cached links and files for the given app, forcing a new search and new downloads
         - This is a good first try when something stops working
+    - `Open Webpage` button: Opens the app's SGDB webpage in your browser
 - Image numbers start at 0, with -1 meaning "not set"
 
 ## Troubleshooting
 
-When someting stop working, a good first step is to try pruging the cache of the given app:
+If the plugin doesn't find any art for an app, click the `Open Webpage` button to check if the plugin is broken, or there really isn't any art to see
+
+When someting stops working, a good first step is to try pruging the cache of the given app:
 - Double-click the header of the app
 - Click `Purge Cache`, this will purge cached links and files, hopefully fixing the problem
 

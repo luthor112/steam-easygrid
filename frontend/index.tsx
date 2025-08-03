@@ -207,6 +207,12 @@ function getEasyGridComponent(popup: any) {
             setCurrentImageNum(-1);
         };
 
+        const OpenWebpage = async () => {
+            console.log("[steam-easygrid 3] Opening SGDB Webpage...");
+            const sgdbGameId = await getSteamGridDBId(props.appid);
+            window.open(`https://www.steamgriddb.com/game/${sgdbGameId}`, "_blank");
+        };
+
         useEffect(() => {
             GetCurrentSettings();
         }, []);
@@ -217,7 +223,8 @@ function getEasyGridComponent(popup: any) {
                 Type: {props.imagetype} <br/>
                 Current: {currentImageNum} / Max: {maxImageNum}
                 <DialogButton style={{width: "120px"}} onClick={SetOriginalImage}>Reset</DialogButton>
-                <DialogButton style={{width: "120px"}} onClick={PurgeImageCache}>Purge Cache</DialogButton><br/>
+                <DialogButton style={{width: "120px"}} onClick={PurgeImageCache}>Purge Cache</DialogButton>
+                <DialogButton style={{width: "120px"}} onClick={OpenWebpage}>Open Webpage</DialogButton><br/>
                 <div style={containerStyle}>
                     {thumbnailList.map((thumbData, index) => {
                         if (thumbData[1] === "static")
