@@ -20,7 +20,7 @@
   "dependencies": {
     "@steambrew/api": "^4.2.2",
     "@steambrew/client": "^4.2.1",
-    "@steambrew/ttc": "^2.6.3",
+    "@steambrew/ttc": "^2.7.3",
     "@steambrew/webkit": "^4.2.1",
     "preact": "^10.25.0"
   }

@@ -15,8 +15,8 @@ importers:
         specifier: ^4.2.1
         version: 4.2.1
       '@steambrew/ttc':
-        specifier: ^2.6.3
-        version: 2.6.3(@babel/core@7.26.10)(typescript@4.9.5)
+        specifier: ^2.7.3
+        version: 2.7.3(@babel/core@7.26.10)(typescript@4.9.5)
       '@steambrew/webkit':
         specifier: ^4.2.1
         version: 4.2.1
@@ -1120,6 +1120,9 @@ packages:
     resolution: {integrity: sha512-R8gLRTZeyp03ymzP/6Lil/28tGeGEzhx1q2k703KGWRAI1VdvPIXdG70VJc2pAMw3NA6JKL5hhFu1sJX0Mnn/A==}
     engines: {node: '>=6.0.0'}
 
+  '@jridgewell/source-map@0.3.10':
+    resolution: {integrity: sha512-0pPkgz9dY+bijgistcTTJ5mR+ocqRXLuhXHYdzoMmmoJ2C9S46RCm2GMUbatPEUK9Yjy26IrAy8D/M00lLkv+Q==}
+
   '@jridgewell/source-map@0.3.6':
     resolution: {integrity: sha512-1ZJTZebgqllO79ue2bm3rIGud/bOe0pP5BjSRCRxxYkEZS8STV7zN84UBbiYu7jy+eCKSnVIUgoWWE/tt+shMQ==}
 
@@ -1553,8 +1556,8 @@ packages:
   '@steambrew/client@4.2.1':
     resolution: {integrity: sha512-mvrReejjiUcXDCkgC/0GOo59bjLE2UX6LMPB88uPaMp543grmwTQOUWLMFn4X25pucU6MNuIUt6VoDiF630bew==}
 
-  '@steambrew/ttc@2.6.3':
-    resolution: {integrity: sha512-eoI+wHS8o1ii+wsLQtq/fsh7pVWQZAa/4vTZi8W1GqPCW6WhEqpw1D5zQmFygaiAXkkVp38kL6H7FI2CX7R5pA==}
+  '@steambrew/ttc@2.7.3':
+    resolution: {integrity: sha512-DkkmK+K+nyBTVeM3pRt+hq4BPSVQ+qJ3gPUN89gJ2IZuPNgLsh5Pjnk0E0HDYX1eG6so53zfb0bleL8CemdQXA==}
     hasBin: true
 
   '@steambrew/webkit@4.2.1':
@@ -1648,6 +1651,11 @@ packages:
 
   acorn@8.14.1:
     resolution: {integrity: sha512-OvQ/2pUDKmgfCg++xsTX1wGxfTaszcHVcTctW4UJB4hibJx2HXxxO5UmVgyjMa+ZDsiaf5wWLXYpRWMmBI0QHg==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
+  acorn@8.15.0:
+    resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -2394,6 +2402,11 @@ packages:
 
   terser@5.39.0:
     resolution: {integrity: sha512-LBAhFyLho16harJoWMg/nZsQYgTrg5jXOn2nCYjRUcZZEdE3qa2zb8QEDRUGVZBW4rlazf2fxkg8tztybTaqWw==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  terser@5.43.1:
+    resolution: {integrity: sha512-+6erLbBm0+LROX2sPXlUYx/ux5PyE9K/a92Wrt6oA+WDAoFTdpHE5tCYCI5PNzq2y8df4rA+QgHLJuR4jNymsg==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -3895,6 +3908,11 @@ snapshots:
 
   '@jridgewell/set-array@1.2.1': {}
 
+  '@jridgewell/source-map@0.3.10':
+    dependencies:
+      '@jridgewell/gen-mapping': 0.3.12
+      '@jridgewell/trace-mapping': 0.3.29
+
   '@jridgewell/source-map@0.3.6':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.8
@@ -4270,7 +4288,7 @@ snapshots:
       typescript: 4.9.5
       url: 0.11.4
 
-  '@steambrew/ttc@2.6.3(@babel/core@7.26.10)(typescript@4.9.5)':
+  '@steambrew/ttc@2.7.3(@babel/core@7.26.10)(typescript@4.9.5)':
     dependencies:
       '@babel/parser': 7.28.0
       '@babel/preset-env': 7.28.0(@babel/core@7.26.10)
@@ -4296,6 +4314,7 @@ snapshots:
       rollup-plugin-polyfill-node: 0.13.0(rollup@4.46.2)
       rollup-plugin-scss: 4.0.1
       sass: 1.89.2
+      terser: 5.43.1
       tslib: 2.8.1
     transitivePeerDependencies:
       - '@babel/core'
@@ -4434,6 +4453,8 @@ snapshots:
   '@xtuc/long@4.2.2': {}
 
   acorn@8.14.1: {}
+
+  acorn@8.15.0: {}
 
   ajv-formats@2.1.1(ajv@8.17.1):
     optionalDependencies:
@@ -5164,6 +5185,13 @@ snapshots:
     dependencies:
       '@jridgewell/source-map': 0.3.6
       acorn: 8.14.1
+      commander: 2.20.3
+      source-map-support: 0.5.21
+
+  terser@5.43.1:
+    dependencies:
+      '@jridgewell/source-map': 0.3.10
+      acorn: 8.15.0
       commander: 2.20.3
       source-map-support: 0.5.21
 
