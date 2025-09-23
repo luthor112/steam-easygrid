@@ -299,6 +299,13 @@ export default async function PluginMain() {
     console.log("[steam-easygrid 3] frontend startup");
     await App.WaitForServicesInitialized();
 
+    while (
+        typeof g_PopupManager === 'undefined' ||
+        typeof MainWindowBrowserManager === 'undefined'
+    ) {
+        await sleep(100);
+    }
+
     const doc = g_PopupManager.GetExistingPopup("SP Desktop_uid0");
 	if (doc) {
 		OnPopupCreation(doc);
