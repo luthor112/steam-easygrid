@@ -5,5 +5,5 @@
     "common_name": "Easy SteamGrid",
     "description": "Quick and easy SteamGridDB integration",
     "version": "3.0.4",
-    "include": ["config.json"]
+    "include": ["defaults.json"]
 }
