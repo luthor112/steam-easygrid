@@ -191,6 +191,7 @@ function getEasyGridComponent(popup: any) {
             if (newImage !== "") {
                 const newImageParts = newImage.split(";", 2);
                 SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], newImageParts[0], props.imagetype);
+                setCurrentImageNum(targetNum);
             }
         };
 
@@ -221,10 +222,10 @@ function getEasyGridComponent(popup: any) {
             <div>
                 App ID: {props.appid} / App Name: {props.appname} / Image
                 Type: {props.imagetype} <br/>
-                Current: {currentImageNum} / Max: {maxImageNum}
-                <DialogButton style={{width: "120px"}} onClick={SetOriginalImage}>Reset</DialogButton>
-                <DialogButton style={{width: "120px"}} onClick={PurgeImageCache}>Purge Cache</DialogButton>
-                <DialogButton style={{width: "120px"}} onClick={OpenWebpage}>Open Webpage</DialogButton><br/>
+                Current: {currentImageNum} / Max: {maxImageNum} <br/>
+                <DialogButton style={{width: "120px", display: "inline-block"}} onClick={SetOriginalImage}>Reset</DialogButton> &nbsp;
+                <DialogButton style={{width: "120px", display: "inline-block"}} onClick={PurgeImageCache}>Purge Cache</DialogButton> &nbsp;
+                <DialogButton style={{width: "120px", display: "inline-block"}} onClick={OpenWebpage}>Open Webpage</DialogButton><br/>
                 <div style={containerStyle}>
                     {thumbnailList.map((thumbData, index) => {
                         if (thumbData[1] === "static")

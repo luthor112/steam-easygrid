@@ -12,7 +12,7 @@ type_dict = {
     0: "grids",
     1: "heroes",
     2: "logos",
-    3: "grids",
+    3: "wide_grids",
     4: "icons"
 }
 
@@ -181,6 +181,8 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
         headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
         query_param = get_config()[f"{type_dict[image_type]}_config"]
+        #if image_type == 3:
+        #    query_param = get_config()["wide_grids_config"]
 
         original_types = query_param["types"]
         query_param["types"] = "animated"
@@ -248,7 +250,10 @@ def fetch_image_urls(headers, image_type, query_param, sgdb_id, url_list, thumb_
     while True:
         query_param["page"] = page
         query_string = "&".join(f"{k}={v}" for k, v in query_param.items())
-        url = f"https://www.steamgriddb.com/api/v2/{type_dict[image_type]}/game/{sgdb_id}?{query_string}"
+        type_string = type_dict[image_type]
+        if image_type == 3:
+            type_string = "grids"
+        url = f"https://www.steamgriddb.com/api/v2/{type_string}/game/{sgdb_id}?{query_string}"
         logger.log(f"HTTP GET: {url}")
         response = requests.get(url, headers=headers)
 

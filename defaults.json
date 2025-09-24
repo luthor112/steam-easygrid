@@ -10,7 +10,17 @@
         "epilepsy": "any",
         "types": "static,animated",
         "mimes": "image/webp,image/png,image/jpeg",
-        "styles": "alternate,blurred,white_logo,material,no_logo"
+        "styles": "alternate,blurred,white_logo,material,no_logo",
+        "dimensions": "600x900,342x482,660x930,512x512,1024x1024"
+    },
+    "wide_grids_config": {
+        "nsfw": "false",
+        "humor": "any",
+        "epilepsy": "any",
+        "types": "static,animated",
+        "mimes": "image/webp,image/png,image/jpeg",
+        "styles": "alternate,blurred,white_logo,material,no_logo",
+        "dimensions": "460x215,920x430,512x512,1024x1024"
     },
     "heroes_config": {
         "nsfw": "false",
