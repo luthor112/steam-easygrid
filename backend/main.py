@@ -12,7 +12,8 @@ type_dict = {
     0: "grids",
     1: "heroes",
     2: "logos",
-    3: "icons"
+    3: "grids",
+    4: "icons"
 }
 
 game_db = {
