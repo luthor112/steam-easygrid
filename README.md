@@ -4,7 +4,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 ## Features
 - Replace or reset grid images for all apps in a collection with ones from SteamGridDB
-- Switch the hero (header) image, logo or grid image of an app with ones from SteamGridDB via a window opened by double-clicking the header
+- Switch the Background image (hero), Logo, Cover image (grid), Wide Cover image (wide grid) or Icon of an app with ones from SteamGridDB via a window opened by double-clicking the header
 
 ## Configuration
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
@@ -13,7 +13,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - When replacing all grid images in a collection, to disable skipping apps with a custom grid already set by the plugin, set `replace_custom_images` to `false`
 - When replacing all grid images in a collection, to skip a given app, add it to the `appids_excluded_from_replacement` list
 - To prioritize animated images, set `prioritize_animated` to `true`
-- `grids_config`, `heroes_config` and `logos_config` can be set to a dictionary with any extra parameters you want to add to the API queries
+- `grids_config`, `wide_grids_config`, `heroes_config`, `logos_config` and `icons_config` can be set to a dictionary with any extra parameters you want to add to the API queries
     - The documentation for all API parameters can be found here: [https://www.steamgriddb.com/api](https://www.steamgriddb.com/api)
 - `grids_width_mult`, `heroes_width_mult` and `logos_width_mult` can be modified to scale images in the UI
 
@@ -23,8 +23,8 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 ## Known issues:
 - Be patient, every change can take a couple seconds
-- The "Current" number does not update when clicking an image (or the "Reset" button), until you change pages and change back
 - The whole page might not update when clicking "Purge Cache", until you change pages and change back
+- Setting icons doesn't work at the moment
 
 ## Contributors
 
@@ -39,6 +39,7 @@ Made with [contrib.rocks](https://contrib.rocks).
 # First run
 
 - Get your [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
+- If the file `<STEAM>\plugins\steam-easygrid\config.json` doesn't exist, make a copy of `defaults.json` and name it `config.json`
 - Fill the field `api_key` in `<STEAM>\plugins\steam-easygrid\config.json`
 - Restart Steam
 
@@ -67,7 +68,7 @@ Made with [contrib.rocks](https://contrib.rocks).
 - Click the `SGDB` button and select your course of action: replace or reset all Grid images in the collection
 - The progress will be displayed while working
 
-# Using Heroes (headers), Logos and Grids from SteamGridDB
+# Using all images from SteamGridDB
 
 - Double-click the header of an app
 - A window should appear with the settings

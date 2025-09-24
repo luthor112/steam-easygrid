@@ -180,9 +180,9 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         thumb_list = []
 
         headers = {"Authorization": f"Bearer {get_config()['api_key']}"}
-        query_param = get_config()[f"{type_dict[image_type]}_config"]
-        #if image_type == 3:
-        #    query_param = get_config()["wide_grids_config"]
+        query_param = {}
+        if f"{type_dict[image_type]}_config" in get_config():
+            query_param = get_config()[f"{type_dict[image_type]}_config"]
 
         original_types = query_param["types"]
         query_param["types"] = "animated"
