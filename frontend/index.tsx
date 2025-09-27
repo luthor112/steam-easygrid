@@ -247,31 +247,72 @@ function getEasyGridComponent(popup: any) {
     };
 }
 
+async function openSGDBWindow(popup: any) {
+    const EasyGridComponent: React.FC = getEasyGridComponent(popup);
+
+    const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+    const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+    const heroWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 1}) / 100;
+    const logoWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 2}) / 100;
+    const gridWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 0}) / 100;
+    const iconWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 4}) / 100;
+
+    showModal(
+        <SidebarNavigation pages={[
+            {title: <div>Hero</div>, content: <EasyGridComponent key="hero_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={1} imageWidthMult={heroWidthMult}/>},
+            {title: <div>Logo</div>, content: <EasyGridComponent key="logo_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={2} imageWidthMult={logoWidthMult}/>},
+            {title: <div>Grid</div>, content: <EasyGridComponent key="grid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={0} imageWidthMult={gridWidthMult}/>},
+            {title: <div>Wide Grid</div>, content: <EasyGridComponent key="widegrid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={3} imageWidthMult={gridWidthMult}/>},
+            {title: <div>Icon</div>, content: <EasyGridComponent key="icon_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={4} imageWidthMult={iconWidthMult}/>}
+        ]} showTitle={true} title={currentApp.display_name}/>,
+        popup.m_popup.window, {strTitle: "EasyGrid", bHideMainWindowForPopouts: false, bForcePopOut: true, popupHeight: 700, popupWidth: 1500}
+    );
+}
+
 async function renderApp(popup: any) {
     const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
     if (!topCapsuleDiv.classList.contains("easygrid-header")) {
-        topCapsuleDiv.addEventListener("dblclick", async () => {
-            const EasyGridComponent: React.FC = getEasyGridComponent(popup);
-
-            const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-            const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
-            const heroWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 1}) / 100;
-            const logoWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 2}) / 100;
-            const gridWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 0}) / 100;
-            const iconWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 4}) / 100;
-
-            showModal(
-                <SidebarNavigation pages={[
-                    {title: <div>Hero</div>, content: <EasyGridComponent key="hero_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={1} imageWidthMult={heroWidthMult}/>},
-                    {title: <div>Logo</div>, content: <EasyGridComponent key="logo_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={2} imageWidthMult={logoWidthMult}/>},
-                    {title: <div>Grid</div>, content: <EasyGridComponent key="grid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={0} imageWidthMult={gridWidthMult}/>},
-                    {title: <div>Wide Grid</div>, content: <EasyGridComponent key="widegrid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={3} imageWidthMult={gridWidthMult}/>},
-                    {title: <div>Icon</div>, content: <EasyGridComponent key="icon_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={4} imageWidthMult={iconWidthMult}/>}
-                ]} showTitle={true} title={currentApp.display_name}/>,
-                popup.m_popup.window, {strTitle: "EasyGrid", bHideMainWindowForPopouts: false, bForcePopOut: true, popupHeight: 700, popupWidth: 1500}
-            );
+        topCapsuleDiv.addEventListener("dblclick", async() => {
+            openSGDBWindow(popup);
         });
         topCapsuleDiv.classList.add("easygrid-header");
+    }
+
+    const gameSettingsButton = await WaitForElement(`div.${findModule(e => e.InPage).InPage} div.${findModule(e => e.AppButtonsContainer).AppButtonsContainer} > div.${findModule(e => e.MenuButtonContainer).MenuButtonContainer}:not([role="button"])`, popup.m_popup.document);
+    const oldGridButton = gameSettingsButton.parentNode.querySelector('div.easygrid-button');
+    if (!oldGridButton) {
+        const gridButton = gameSettingsButton.cloneNode(true);
+        gridButton.classList.add("easygrid-button");
+        gridButton.firstChild.innerHTML = "SG";
+        gameSettingsButton.parentNode.insertBefore(gridButton, gameSettingsButton.nextSibling);
+
+        gridButton.addEventListener("click", async () => {
+            showContextMenu(
+                <Menu label="SGDB Options">
+                    <MenuItem onClick={async () => {
+                        const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+                        const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+
+                        const allImageTypes = 5;
+                        for (let j = 0; j < allImageTypes; j++) {
+                            gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
+                            const newImage = await get_image({app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: j, image_num: 0, set_current: true});
+                            if (newImage !== "") {
+                                const newImageParts = newImage.split(";", 2);
+                                SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], j);
+                            }
+                        }
+                        gridButton.firstChild.innerHTML = "SG";
+                        console.log("[steam-easygrid 3] Images replaced for", uiStore.currentGameListSelection.nAppId);
+                    }}> Auto replace images </MenuItem>
+                    <MenuItem onClick={async () => {
+                        openSGDBWindow(popup);
+                    }}> Open window </MenuItem>
+                </Menu>,
+                gridButton,
+                { bForcePopup: true }
+            );
+        });
     }
 }
 
