@@ -5,6 +5,8 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 ## Features
 - Replace or reset grid images for all apps in a collection with ones from SteamGridDB
 - Switch the Background image (hero), Logo, Cover image (grid), Wide Cover image (wide grid) or Icon of an app with ones from SteamGridDB via a window opened by double-clicking the header
+    - Or automatically switch all images of an app using the `SG` button
+- Set custom height for the Background image (hero)
 
 ## Configuration
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
@@ -13,6 +15,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - When replacing all grid images in a collection, to disable skipping apps with a custom grid already set by the plugin, set `replace_custom_images` to `false`
 - When replacing all grid images in a collection, to skip a given app, add it to the `appids_excluded_from_replacement` list
 - To prioritize animated images, set `prioritize_animated` to `true`
+- To set a custom Background image (hero) height, set `expand_headers` to the desired value (e.g. `530px` or `1240px`)
 - `grids_config`, `wide_grids_config`, `heroes_config`, `logos_config` and `icons_config` can be set to a dictionary with any extra parameters you want to add to the API queries
     - The documentation for all API parameters can be found here: [https://www.steamgriddb.com/api](https://www.steamgriddb.com/api)
 - `grids_width_mult`, `heroes_width_mult` and `logos_width_mult` can be modified to scale images in the UI
@@ -25,6 +28,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - Be patient, every change can take a couple seconds
 - The whole page might not update when clicking "Purge Cache", until you change pages and change back
 - Setting icons doesn't work at the moment
+- `Auto Replace Images` sometimes fails setting the Wide Grid image
 
 ## Contributors
 

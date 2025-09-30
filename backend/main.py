@@ -349,6 +349,14 @@ class Backend:
         logger.log(f"get_width_mult() -> {width_mult}")
         return width_mult
 
+    @staticmethod
+    def get_expand_headers_value():
+        expand_headers = ""
+        if "expand_headers" in get_config():
+            expand_headers = get_config()["expand_headers"]
+        logger.log(f"get_expand_headers_value() -> {expand_headers}")
+        return expand_headers
+
 class Plugin:
     def _front_end_loaded(self):
         logger.log("Frontend loaded")

@@ -10,6 +10,7 @@ const get_steamgriddb_id = callable<[{ app_id: number }], number>('Backend.get_s
 const purge_cache = callable<[{ app_id: number }], boolean>('Backend.purge_cache');
 const get_thumb_list = callable<[{ app_id: number, image_type: number }], string>('Backend.get_thumb_list');
 const get_width_mult = callable<[{ app_id: number, image_type: number }], number>('Backend.get_width_mult');
+const get_expand_headers_value = callable<[{}], boolean>('Backend.get_expand_headers_value');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -313,6 +314,25 @@ async function renderApp(popup: any) {
                 { bForcePopup: true }
             );
         });
+    }
+
+    const expandHeadersValue = await get_expand_headers_value({});
+    if (expandHeadersValue !== "") {
+        for (const el of popup.m_popup.document.querySelectorAll("*:has(> .HNbe3eZf6H7dtJ042x1vM)")) {
+            el.style.setProperty("height", "auto", "important");
+        }
+
+        topCapsuleDiv.style.setProperty("max-height", expandHeadersValue, "important");
+
+        for (const el of popup.m_popup.document.querySelectorAll("._2Eh7Soh97QONu_grMi2m66 img")) {
+            el.style.setProperty("width", "50%", "important");
+            el.style.setProperty("height", "50%", "important");
+            el.style.setProperty("margin-bottom", "100px", "important");
+        }
+
+        for (const el of popup.m_popup.document.querySelectorAll("._30acA_E0q_GuOxBqxgDJj4")) {
+            el.style.setProperty("bottom", "100px", "important");
+        }
     }
 }
 
