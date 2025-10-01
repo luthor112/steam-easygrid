@@ -5,8 +5,13 @@ import base64
 import glob
 import json
 import os
-import requests
 import shutil
+
+try:
+    import requests
+except:
+    logger.log("requests failed to initialize, loading polyfill...")
+    from polyfills import requests
 
 type_dict = {
     0: "grids",
