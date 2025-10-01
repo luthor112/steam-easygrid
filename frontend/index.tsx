@@ -318,19 +318,19 @@ async function renderApp(popup: any) {
 
     const expandHeadersValue = await get_expand_headers_value({});
     if (expandHeadersValue !== "") {
-        for (const el of popup.m_popup.document.querySelectorAll("*:has(> .HNbe3eZf6H7dtJ042x1vM)")) {
+        for (const el of popup.m_popup.document.querySelectorAll(`*:has(> .${findModule(e => e.ImgSrc).ImgSrc})`)) {
             el.style.setProperty("height", "auto", "important");
         }
 
         topCapsuleDiv.style.setProperty("max-height", expandHeadersValue, "important");
 
-        for (const el of popup.m_popup.document.querySelectorAll("._2Eh7Soh97QONu_grMi2m66 img")) {
+        for (const el of popup.m_popup.document.querySelectorAll(`.${findModule(e => e.BoxSizer).BoxSizer} img`)) {
             el.style.setProperty("width", "50%", "important");
             el.style.setProperty("height", "50%", "important");
             el.style.setProperty("margin-bottom", "100px", "important");
         }
 
-        for (const el of popup.m_popup.document.querySelectorAll("._30acA_E0q_GuOxBqxgDJj4")) {
+        for (const el of popup.m_popup.document.querySelectorAll(`.${findModule(e => e.TitleSection).TitleSection}`)) {
             el.style.setProperty("bottom", "100px", "important");
         }
     }
