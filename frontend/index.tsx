@@ -258,13 +258,14 @@ async function openSGDBWindow(popup: any) {
     const gridWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 0}) / 100;
     const iconWidthMult = await get_width_mult({app_id: uiStore.currentGameListSelection.nAppId, image_type: 4}) / 100;
 
+    // Removed for now:
+    // {title: <div>Icon</div>, content: <EasyGridComponent key="icon_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={4} imageWidthMult={iconWidthMult}/>}
     showModal(
         <SidebarNavigation pages={[
             {title: <div>Hero</div>, content: <EasyGridComponent key="hero_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={1} imageWidthMult={heroWidthMult}/>},
             {title: <div>Logo</div>, content: <EasyGridComponent key="logo_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={2} imageWidthMult={logoWidthMult}/>},
             {title: <div>Grid</div>, content: <EasyGridComponent key="grid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={0} imageWidthMult={gridWidthMult}/>},
-            {title: <div>Wide Grid</div>, content: <EasyGridComponent key="widegrid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={3} imageWidthMult={gridWidthMult}/>},
-            {title: <div>Icon</div>, content: <EasyGridComponent key="icon_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={4} imageWidthMult={iconWidthMult}/>}
+            {title: <div>Wide Grid</div>, content: <EasyGridComponent key="widegrid_page" appid={uiStore.currentGameListSelection.nAppId} appname={currentApp.display_name} imagetype={3} imageWidthMult={gridWidthMult}/>}
         ]} showTitle={true} title={currentApp.display_name}/>,
         popup.m_popup.window, {strTitle: "EasyGrid", bHideMainWindowForPopouts: false, bForcePopOut: true, popupHeight: 700, popupWidth: 1500}
     );
@@ -294,7 +295,8 @@ async function renderApp(popup: any) {
                         const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
                         const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
 
-                        const allImageTypes = 5;
+                        //const allImageTypes = 5;
+                        const allImageTypes = 4;    // Icons are disabled for now
                         for (let j = 0; j < allImageTypes; j++) {
                             gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
                             const newImage = await get_image({app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: j, image_num: 0, set_current: true});
