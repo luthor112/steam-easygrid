@@ -8,6 +8,11 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
     - Or automatically switch all images of an app using the `SG` button
 - Set custom height for the Background image (hero)
 
+## Notices
+
+- Setting icons doesn't work at the moment, and has been disabled
+- The plugin should now work even if the `requests` module fails to load
+
 ## Configuration
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
 - Set `api_key` to your [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
@@ -75,6 +80,7 @@ Made with [contrib.rocks](https://contrib.rocks).
 # Using all images from SteamGridDB
 
 - Double-click the header of an app
+    - ...or click the `SG` button near the `Show game details` button, and select `Open window` from the menu
 - A window should appear with the settings
 - In the left pane, secect the type of image you want to replace
 - In the right page, click the image you want to use
@@ -84,6 +90,13 @@ Made with [contrib.rocks](https://contrib.rocks).
         - This is a good first try when something stops working
     - `Open Webpage` button: Opens the app's SGDB webpage in your browser
 - Image numbers start at 0, with -1 meaning "not set"
+
+# Using all images from SteamGridDB (but automatically)
+
+- Click the `SG` button near the `Show game details` button
+- Select `Auto replace images` from the menu
+
+![SG button on the app page](screenshots/sg-app-button.png)
 
 ## Troubleshooting
 
