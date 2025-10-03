@@ -1,16 +1,26 @@
 import json
+import urllib.error
 import urllib.request
 
 class response_wrapper:
-    def __init__(self, wrapped_resp, stream_mode):
+    def __init__(self, wrapped_req, stream_mode):
         self.stream_mode = stream_mode
-        self.status_code = wrapped_resp.status
-        self.url = wrapped_resp.url
 
-        if self.stream_mode:
-            self.raw = wrapped_resp
-        else:
-            self.resp_data = wrapped_resp.read()
+        try:
+            wrapped_resp = urllib.request.urlopen(wrapped_req)
+            
+            self.status_code = wrapped_resp.status
+            self.url = wrapped_resp.url
+
+            if self.stream_mode:
+                self.raw = wrapped_resp
+            else:
+                self.resp_data = wrapped_resp.read()
+        except urllib.error.HTTPError as err:
+            self.status_code = err.code
+            self.url = err.url
+            self.raw = None
+            self.resp_data = ""
 
     def __enter__(self):
         return self
@@ -29,5 +39,4 @@ class requests:
     @staticmethod
     def get(url, headers={}, stream=False):
         req = urllib.request.Request(url, headers=headers, method="GET")
-        resp = urllib.request.urlopen(req)
-        return response_wrapper(resp, stream)
+        return response_wrapper(req, stream)
