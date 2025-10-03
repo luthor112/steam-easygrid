@@ -5,6 +5,7 @@
     "appids_excluded_from_replacement": [],
     "prioritize_animated":  false,
     "expand_headers": "",
+    "app_page_button": true,
     "grids_config": {
         "nsfw": "false",
         "humor": "any",

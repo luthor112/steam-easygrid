@@ -10,7 +10,8 @@ const get_steamgriddb_id = callable<[{ app_id: number }], number>('Backend.get_s
 const purge_cache = callable<[{ app_id: number }], boolean>('Backend.purge_cache');
 const get_thumb_list = callable<[{ app_id: number, image_type: number }], string>('Backend.get_thumb_list');
 const get_width_mult = callable<[{ app_id: number, image_type: number }], number>('Backend.get_width_mult');
-const get_expand_headers_value = callable<[{}], boolean>('Backend.get_expand_headers_value');
+const get_expand_headers_value = callable<[{}], string>('Backend.get_expand_headers_value');
+const get_app_page_button = callable<[{}], boolean>('Backend.get_app_page_button');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -280,42 +281,45 @@ async function renderApp(popup: any) {
         topCapsuleDiv.classList.add("easygrid-header");
     }
 
-    const gameSettingsButton = await WaitForElement(`div.${findModule(e => e.InPage).InPage} div.${findModule(e => e.AppButtonsContainer).AppButtonsContainer} > div.${findModule(e => e.MenuButtonContainer).MenuButtonContainer}:not([role="button"])`, popup.m_popup.document);
-    const oldGridButton = gameSettingsButton.parentNode.querySelector('div.easygrid-button');
-    if (!oldGridButton) {
-        const gridButton = gameSettingsButton.cloneNode(true);
-        gridButton.classList.add("easygrid-button");
-        gridButton.firstChild.innerHTML = "SG";
-        gameSettingsButton.parentNode.insertBefore(gridButton, gameSettingsButton.nextSibling);
+    const appPageButtonEnabled = await get_app_page_button({});
+    if (appPageButtonEnabled) {
+        const gameSettingsButton = await WaitForElement(`div.${findModule(e => e.InPage).InPage} div.${findModule(e => e.AppButtonsContainer).AppButtonsContainer} > div.${findModule(e => e.MenuButtonContainer).MenuButtonContainer}:not([role="button"])`, popup.m_popup.document);
+        const oldGridButton = gameSettingsButton.parentNode.querySelector('div.easygrid-button');
+        if (!oldGridButton) {
+            const gridButton = gameSettingsButton.cloneNode(true);
+            gridButton.classList.add("easygrid-button");
+            gridButton.firstChild.innerHTML = "SG";
+            gameSettingsButton.parentNode.insertBefore(gridButton, gameSettingsButton.nextSibling);
 
-        gridButton.addEventListener("click", async () => {
-            showContextMenu(
-                <Menu label="SGDB Options">
-                    <MenuItem onClick={async () => {
-                        const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                        const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+            gridButton.addEventListener("click", async () => {
+                showContextMenu(
+                    <Menu label="SGDB Options">
+                        <MenuItem onClick={async () => {
+                            const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+                            const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
 
-                        //const allImageTypes = 5;
-                        const allImageTypes = 4;    // Icons are disabled for now
-                        for (let j = 0; j < allImageTypes; j++) {
-                            gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
-                            const newImage = await get_image({app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: j, image_num: 0, set_current: true});
-                            if (newImage !== "") {
-                                const newImageParts = newImage.split(";", 2);
-                                SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], j);
+                            //const allImageTypes = 5;
+                            const allImageTypes = 4;    // Icons are disabled for now
+                            for (let j = 0; j < allImageTypes; j++) {
+                                gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
+                                const newImage = await get_image({app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: j, image_num: 0, set_current: true});
+                                if (newImage !== "") {
+                                    const newImageParts = newImage.split(";", 2);
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], j);
+                                }
                             }
-                        }
-                        gridButton.firstChild.innerHTML = "SG";
-                        console.log("[steam-easygrid 3] Images replaced for", uiStore.currentGameListSelection.nAppId);
-                    }}> Auto replace images </MenuItem>
-                    <MenuItem onClick={async () => {
-                        openSGDBWindow(popup);
-                    }}> Open window </MenuItem>
-                </Menu>,
-                gridButton,
-                { bForcePopup: true }
-            );
-        });
+                            gridButton.firstChild.innerHTML = "SG";
+                            console.log("[steam-easygrid 3] Images replaced for", uiStore.currentGameListSelection.nAppId);
+                        }}> Auto replace images </MenuItem>
+                        <MenuItem onClick={async () => {
+                            openSGDBWindow(popup);
+                        }}> Open window </MenuItem>
+                    </Menu>,
+                    gridButton,
+                    { bForcePopup: true }
+                );
+            });
+        }
     }
 
     const expandHeadersValue = await get_expand_headers_value({});

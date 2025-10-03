@@ -21,6 +21,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - When replacing all grid images in a collection, to skip a given app, add it to the `appids_excluded_from_replacement` list
 - To prioritize animated images, set `prioritize_animated` to `true`
 - To set a custom Background image (hero) height, set `expand_headers` to the desired value (e.g. `530px` or `1240px`)
+- To hide the `SG` button on app pages, set `app_page_button` to `false`
 - `grids_config`, `wide_grids_config`, `heroes_config`, `logos_config` and `icons_config` can be set to a dictionary with any extra parameters you want to add to the API queries
     - The documentation for all API parameters can be found here: [https://www.steamgriddb.com/api](https://www.steamgriddb.com/api)
 - `grids_width_mult`, `heroes_width_mult` and `logos_width_mult` can be modified to scale images in the UI

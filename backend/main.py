@@ -362,6 +362,14 @@ class Backend:
         logger.log(f"get_expand_headers_value() -> {expand_headers}")
         return expand_headers
 
+    @staticmethod
+    def get_app_page_button():
+        app_page_button = True
+        if "app_page_button" in get_config():
+            app_page_button = get_config()["app_page_button"]
+        logger.log(f"get_app_page_button() -> {app_page_button}")
+        return app_page_button
+
 class Plugin:
     def _front_end_loaded(self):
         logger.log("Frontend loaded")
