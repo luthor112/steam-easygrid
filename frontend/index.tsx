@@ -1,5 +1,5 @@
 import { callable, findModule, sleep, Millennium, Menu, MenuItem, showContextMenu, DialogButton, showModal, SidebarNavigation } from "@steambrew/client";
-import { render } from "react-dom";
+import { createRoot } from "react-dom/client";
 import React, { useState, useEffect } from "react";
 
 // Backend functions
@@ -36,7 +36,8 @@ async function renderHome(popup: any) {
     const oldGridButton = headerDiv.querySelector('button.easygrid-button');
     if (!oldGridButton) {
         const gridButton = popup.m_popup.document.createElement("div");
-        render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>, gridButton);
+        const gridButtonRoot = createRoot(gridButton);
+        gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
         headerDiv.insertBefore(gridButton, headerDiv.firstChild.nextSibling.nextSibling);
 
         gridButton.addEventListener("click", async () => {
@@ -85,7 +86,8 @@ async function renderCollection(popup: any) {
     const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
     if (!oldGridButton) {
         const gridButton = popup.m_popup.document.createElement("div");
-        render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>, gridButton);
+        const gridButtonRoot = createRoot(gridButton);
+        gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
         collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild.nextSibling);
 
         gridButton.addEventListener("click", async () => {

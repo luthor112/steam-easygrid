@@ -12,16 +12,16 @@
   },
   "type": "module",
   "name": "steam-easygrid",
-  "version": "3.0.5",
+  "version": "3.0.6",
   "description": "Quick and easy SteamGridDB integration",
   "main": "./frontend/index.jsx",
   "author": "luthor112",
   "license": "MIT",
   "dependencies": {
-    "@steambrew/api": "^5.5.14",
-    "@steambrew/client": "^5.5.14",
-    "@steambrew/ttc": "^2.7.5",
-    "@steambrew/webkit": "^5.5.14",
+    "@steambrew/api": "^5.8.3",
+    "@steambrew/client": "^5.8.3",
+    "@steambrew/ttc": "^2.8.6",
+    "@steambrew/webkit": "^5.8.3",
     "preact": "^10.25.0"
   }
 }
