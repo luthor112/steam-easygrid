@@ -370,6 +370,22 @@ class Backend:
         logger.log(f"get_app_page_button() -> {app_page_button}")
         return app_page_button
 
+    @staticmethod
+    def get_stagger_main_load():
+        stagger_main_load = 0
+        if "stagger_main_load" in get_config():
+            stagger_main_load = get_config()["stagger_main_load"]
+        logger.log(f"get_stagger_main_load() -> {stagger_main_load}")
+        return stagger_main_load
+
+    @staticmethod
+    def get_stagger_page_load():
+        stagger_page_load = 0
+        if "stagger_page_load" in get_config():
+            stagger_page_load = get_config()["stagger_page_load"]
+        logger.log(f"get_stagger_page_load() -> {stagger_page_load}")
+        return stagger_page_load
+
 class Plugin:
     def _front_end_loaded(self):
         logger.log("Frontend loaded")
@@ -386,6 +402,7 @@ class Plugin:
         load_game_db()
         logger.log("Database loaded")
 
+        get_config()
         logger.log("Backend loaded")
         Millennium.ready()
 

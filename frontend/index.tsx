@@ -12,6 +12,8 @@ const get_thumb_list = callable<[{ app_id: number, image_type: number }], string
 const get_width_mult = callable<[{ app_id: number, image_type: number }], number>('Backend.get_width_mult');
 const get_expand_headers_value = callable<[{}], string>('Backend.get_expand_headers_value');
 const get_app_page_button = callable<[{}], boolean>('Backend.get_app_page_button');
+const get_stagger_main_load = callable<[{}], number>('Backend.get_stagger_main_load');
+const get_stagger_page_load = callable<[{}], number>('Backend.get_stagger_page_load');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -344,6 +346,16 @@ async function renderApp(popup: any) {
     }
 }
 
+async function renderAppAndObserve(popup: any) {
+    await renderApp(popup);
+
+    const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
+    const topCapsuleObserver = new MutationObserver(async (mutationList, observer) => {
+        await renderApp(popup);
+    });
+    topCapsuleObserver.observe(topCapsuleDiv.parentNode, { subtree: true, childList: true, attributes: true });
+}
+
 async function OnPopupCreation(popup: any) {
     if (popup.m_strName === "SP Desktop_uid0") {
         var mwbm = undefined;
@@ -356,13 +368,22 @@ async function OnPopupCreation(popup: any) {
             }
         }
 
+        console.log("[steam-easygrid 3] Registering callback");
         MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL, previousURL) => {
+            if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home" || MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/") || MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/app/")) {
+                const staggerPageLoad = await get_stagger_page_load({});
+                if (staggerPageLoad > 0) {
+                    console.log("[steam-easygrid 3] Staggering page load by", staggerPageLoad);
+                    await sleep(staggerPageLoad);
+                }
+            }
+
             if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home") {
                 await renderHome(popup);
             } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/")) {
                 await renderCollection(popup);
             } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/app/")) {
-                await renderApp(popup);
+                await renderAppAndObserve(popup);
             }
         });
     }
@@ -371,6 +392,12 @@ async function OnPopupCreation(popup: any) {
 export default async function PluginMain() {
     console.log("[steam-easygrid 3] frontend startup");
     await App.WaitForServicesInitialized();
+
+    const staggerMainLoad = await get_stagger_main_load({});
+    if (staggerMainLoad > 0) {
+        console.log("[steam-easygrid 3] Staggering main load by", staggerMainLoad);
+        await sleep(staggerMainLoad);
+    }
 
     while (
         typeof g_PopupManager === 'undefined' ||

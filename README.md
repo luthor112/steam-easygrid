@@ -12,6 +12,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 - Setting icons doesn't work at the moment, and has been disabled
 - The plugin should now work even if the `requests` module fails to load
+- Several new fixes have been implemented to make sure the plugin actually works
 
 ## Configuration
 - Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
@@ -35,6 +36,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - The whole page might not update when clicking "Purge Cache", until you change pages and change back
 - Setting icons doesn't work at the moment
 - `Auto Replace Images` sometimes fails setting the Wide Grid image
+- If the plugin doesn't work, or randomly stops working, check [Troubleshooting](#troubleshooting)
 
 ## Contributors
 
@@ -44,7 +46,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 Made with [contrib.rocks](https://contrib.rocks).
 
-## HowTo/Screenshots/Problemsolving
+## HowTo/Screenshots
 
 # First run
 
@@ -111,3 +113,7 @@ If purging the cache doesn't fix the problem, try the nuclear option:
 - Delete the database stored at `<STEAM>\plugins\steam-easygrid\game_db.json`
 - Delete the cache stored at `<STEAM>\plugins\steam-easygrid\artcache`
 - Restart Steam
+
+If the plugin doesn't work, or randomly stops working, try modifying with the following values in your `config.json`:
+- `stagger_main_load`: Delay loading the plugin and registering hooks by the given time in milliseconds
+- `stagger_page_load`: Delay triggering page modification on page change by the given time in milliseconds

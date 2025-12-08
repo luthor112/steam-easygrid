@@ -50,5 +50,7 @@
     },
     "grids_width_mult": 5,
     "heroes_width_mult": 10,
-    "logos_width_mult": 7
+    "logos_width_mult": 7,
+    "stagger_main_load": 100,
+    "stagger_page_load": 0
 }
