@@ -42,6 +42,51 @@ def get_cache_dir():
 def get_game_db_fname():
     return os.path.join(PLUGIN_BASE_DIR, "game_db.json")
 
+def get_steam_root():
+    """Resolve the Steam root based on the plugin location."""
+    try:
+        # Plugin lives at <steam>/plugins/steam-easygrid
+        return os.path.abspath(os.path.join(PLUGIN_BASE_DIR, os.pardir, os.pardir))
+    except Exception:
+        return None
+
+def pick_user_dir(userdata_path):
+    """Pick a Steam user dir (numeric) by most recent mtime."""
+    try:
+        candidates = [
+            d for d in os.listdir(userdata_path)
+            if d.isdigit() and os.path.isdir(os.path.join(userdata_path, d))
+        ]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda d: os.path.getmtime(os.path.join(userdata_path, d)), reverse=True)
+        return candidates[0]
+    except Exception:
+        return None
+
+def write_icon_to_grid(app_id, source_path, ftype):
+    """Write the icon into Steam's grid folder with _icon suffix."""
+    try:
+        steam_root = get_steam_root()
+        if not steam_root:
+            logger.log("write_icon_to_grid(): Steam root not resolved")
+            return
+        userdata = os.path.join(steam_root, "userdata")
+        if not os.path.isdir(userdata):
+            logger.log(f"write_icon_to_grid(): userdata not found at {userdata}")
+            return
+        user_dir = pick_user_dir(userdata)
+        if not user_dir:
+            logger.log("write_icon_to_grid(): no user dir found")
+            return
+        grid_dir = os.path.join(userdata, user_dir, "config", "grid")
+        os.makedirs(grid_dir, exist_ok=True)
+        target = os.path.join(grid_dir, f"{app_id}_icon.{ftype}")
+        shutil.copy2(source_path, target)
+        logger.log(f"write_icon_to_grid(): wrote icon to {target}")
+    except Exception as e:
+        logger.log(f"write_icon_to_grid(): failed to write icon: {e}")
+
 def get_config():
     if not os.path.exists(get_config_fname()):
         shutil.copyfile(get_defaults_fname(), get_config_fname())
@@ -265,6 +310,10 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         ckey = f"current_{type_dict[image_type]}"
         game_db["games"][app_id_str][ckey] = image_num
         save_game_db()
+
+    # For icons, also write into Steam's grid folder with the proper suffix
+    if image_type == 4:
+        write_icon_to_grid(app_id, fname, ftype)
 
     logger.log(f"get_cached_file() -> {fname}")
     return f"{ftype};{get_encoded_image(fname)}"
