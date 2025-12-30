@@ -92,6 +92,15 @@ def write_icon_to_grid(app_id, source_path, ftype):
         target = os.path.join(grid_dir, f"{app_id}_icon.{ftype}")
         shutil.copy2(source_path, target)
         logger.log(f"write_icon_to_grid(): wrote icon to {target}")
+
+        # If Steam created a plain {appid}.png, rename it to the icon naming so it stays consistent
+        legacy_plain = os.path.join(grid_dir, f"{app_id}.png")
+        if os.path.exists(legacy_plain) and not os.path.exists(target):
+            try:
+                os.rename(legacy_plain, target)
+                logger.log(f"write_icon_to_grid(): renamed legacy grid file {legacy_plain} -> {target}")
+            except Exception as e:
+                logger.log(f"write_icon_to_grid(): failed to rename legacy grid file {legacy_plain}: {e}")
     except Exception as e:
         logger.log(f"write_icon_to_grid(): failed to write icon: {e}")
 
