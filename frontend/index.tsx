@@ -203,7 +203,13 @@ function getEasyGridComponent(popup: any) {
             }
             const newImageParts = newImage.split(";", 2);
             const mime = newImageParts[0].startsWith("image/") ? newImageParts[0] : `image/${newImageParts[0]}`;
-            SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], mime, props.imagetype);
+            if (props.imagetype === 4) {
+                // Icons can be finicky; try both known icon type slots (4 and 5)
+                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], mime, 4);
+                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], mime, 5);
+            } else {
+                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], mime, props.imagetype);
+            }
             setCurrentImageNum(targetNum);
         };
 
@@ -317,7 +323,13 @@ async function renderApp(popup: any) {
                                 }
                                 const newImageParts = newImage.split(";", 2);
                                 const mime = newImageParts[0].startsWith("image/") ? newImageParts[0] : `image/${newImageParts[0]}`;
-                                SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], mime, j);
+                                if (j === 4) {
+                                    // Icons: attempt both 4 and 5 slots
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], mime, 4);
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], mime, 5);
+                                } else {
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], mime, j);
+                                }
                             }
                             gridButton.firstChild.innerHTML = "SG";
                             console.log("[steam-easygrid 3] Images replaced for", uiStore.currentGameListSelection.nAppId);
