@@ -76,6 +76,7 @@ def write_icon_to_grid(app_id, source_path, ftype):
     """Write the icon into Steam's grid folder with _icon suffix."""
     try:
         import time
+        import hashlib
         steam_root = get_steam_root()
         if not steam_root:
             logger.log("write_icon_to_grid(): Steam root not resolved")
@@ -119,40 +120,48 @@ def write_icon_to_grid(app_id, source_path, ftype):
             except Exception:
                 return None
 
-        def is_icon_like_png(path):
-            size = try_read_png_size(path)
-            return bool(size and size[0] == size[1] and size[0] <= 512)
+        def sha1_file(path):
+            h = hashlib.sha1()
+            with open(path, "rb") as f:
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                    h.update(chunk)
+            return h.hexdigest()
 
-        def is_wide_like_png(path):
-            size = try_read_png_size(path)
-            return bool(size and (size[0] != size[1] or max(size[0], size[1]) > 512))
-
-        # Snapshot current wide/header art if present
+        # Snapshot current wide/header art if present (always back it up; Steam can reuse this filename)
         try:
-            if os.path.exists(plain) and is_wide_like_png(plain):
+            if os.path.exists(plain):
                 plain_mtime = os.path.getmtime(plain)
                 backup_mtime = os.path.getmtime(wide_backup) if os.path.exists(wide_backup) else -1
                 if plain_mtime > backup_mtime:
                     shutil.copy2(plain, wide_backup)
-                    logger.log(f"write_icon_to_grid(): backed up wide art {plain} -> {wide_backup}")
+                    logger.log(f"write_icon_to_grid(): backed up {plain} -> {wide_backup}")
         except Exception as e:
-            logger.log(f"write_icon_to_grid(): failed to backup wide art: {e}")
+            logger.log(f"write_icon_to_grid(): failed to backup {plain}: {e}")
 
         # Steam may overwrite {appid}.png later (we've seen ~30s delay). Monitor in a background thread
-        # and restore wide art if Steam clobbers it with an icon-like image.
+        # and restore the backed-up file if Steam clobbers it with the icon we just downloaded.
         try:
             import threading
+
+            try:
+                icon_hash = sha1_file(source_path)
+            except Exception as hash_err:
+                icon_hash = None
+                logger.log(f"write_icon_to_grid(): failed hashing icon source {source_path}: {hash_err}")
 
             def monitor_and_restore():
                 try:
                     deadline = time.time() + 90.0
                     while time.time() < deadline:
-                        if os.path.exists(plain) and os.path.exists(wide_backup) and is_icon_like_png(plain):
-                            shutil.copy2(wide_backup, plain)
-                            logger.log(
-                                f"write_icon_to_grid(): restored wide art after late overwrite {wide_backup} -> {plain}"
-                            )
-                            # keep watching in case Steam overwrites again
+                        if icon_hash and os.path.exists(plain) and os.path.exists(wide_backup):
+                            try:
+                                if sha1_file(plain) == icon_hash:
+                                    shutil.copy2(wide_backup, plain)
+                                    logger.log(
+                                        f"write_icon_to_grid(): restored {wide_backup} -> {plain} (Steam overwrote with icon)"
+                                    )
+                            except Exception as compare_err:
+                                logger.log(f"write_icon_to_grid(): monitor compare failed: {compare_err}")
                         time.sleep(1.0)
                 except Exception as monitor_err:
                     logger.log(f"write_icon_to_grid(): monitor failed: {monitor_err}")
