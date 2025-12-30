@@ -113,32 +113,17 @@ def write_icon_to_grid(app_id, source_path, ftype):
                 return None
 
         # Some Steam builds store icons as {appid}.png (same filename header uses).
-        # Only overwrite {appid}.png when it looks like an icon (square and not huge),
-        # so we don't clobber header art.
+        # Write BOTH {appid}_icon.png and {appid}.png (only when the *selected* image looks like an icon),
+        # so we don't accidentally clobber header art.
         if str(ftype).lower() == "png":
             plain = os.path.join(grid_dir, f"{app_id}.png")
-            size = try_read_png_size(plain) if os.path.exists(plain) else None
-            if (not os.path.exists(plain)) or (size and size[0] == size[1] and size[0] <= 512):
+            src_size = try_read_png_size(source_path)
+            if src_size and src_size[0] == src_size[1] and src_size[0] <= 512:
                 try:
                     shutil.copy2(source_path, plain)
                     logger.log(f"write_icon_to_grid(): also wrote icon to {plain}")
                 except Exception as e:
                     logger.log(f"write_icon_to_grid(): failed to write icon to {plain}: {e}")
-
-        # If Steam created a plain {appid} file, copy it to the icon naming so it stays consistent
-        legacy_candidates = [
-            os.path.join(grid_dir, f"{app_id}.png"),
-            os.path.join(grid_dir, f"{app_id}.jpg"),
-            os.path.join(grid_dir, f"{app_id}.jpeg"),
-        ]
-        for legacy_plain in legacy_candidates:
-            if os.path.exists(legacy_plain):
-                try:
-                    shutil.copy2(legacy_plain, target)
-                    logger.log(f"write_icon_to_grid(): copied legacy grid file {legacy_plain} -> {target}")
-                    break
-                except Exception as e:
-                    logger.log(f"write_icon_to_grid(): failed to copy legacy grid file {legacy_plain}: {e}")
     except Exception as e:
         logger.log(f"write_icon_to_grid(): failed to write icon: {e}")
 
@@ -163,21 +148,17 @@ def ensure_grid_icon_copy(app_id, ftype="png"):
             os.path.join(grid_dir, f"{app_id}.jpg"),
             os.path.join(grid_dir, f"{app_id}.jpeg"),
         ]
-        # Steam may write/overwrite the plain file shortly after our call; keep syncing for a bit.
-        deadline = time.time() + 10.0
-        while time.time() < deadline:
-            existing = [p for p in legacy_candidates if os.path.exists(p)]
-            if existing:
-                newest = max(existing, key=lambda p: os.path.getmtime(p))
+        # Only create {appid}_icon.* if it doesn't exist. Never overwrite the user's selected icon.
+        if os.path.exists(target):
+            return
+        for legacy_plain in legacy_candidates:
+            if os.path.exists(legacy_plain):
                 try:
-                    newest_mtime = os.path.getmtime(newest)
-                    target_mtime = os.path.getmtime(target) if os.path.exists(target) else -1
-                    if newest_mtime > target_mtime:
-                        shutil.copy2(newest, target)
-                        logger.log(f"ensure_grid_icon_copy(): synced {newest} -> {target}")
+                    shutil.copy2(legacy_plain, target)
+                    logger.log(f"ensure_grid_icon_copy(): copied {legacy_plain} -> {target}")
+                    break
                 except Exception as e:
-                    logger.log(f"ensure_grid_icon_copy(): sync failed: {e}")
-            time.sleep(0.25)
+                    logger.log(f"ensure_grid_icon_copy(): failed to copy {legacy_plain}: {e}")
     except Exception:
         pass
 
