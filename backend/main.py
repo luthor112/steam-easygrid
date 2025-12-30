@@ -93,7 +93,7 @@ def write_icon_to_grid(app_id, source_path, ftype):
         shutil.copy2(source_path, target)
         logger.log(f"write_icon_to_grid(): wrote icon to {target}")
 
-        # If Steam created a plain {appid} file, rename it to the icon naming so it stays consistent
+        # If Steam created a plain {appid} file, copy it to the icon naming so it stays consistent
         legacy_candidates = [
             os.path.join(grid_dir, f"{app_id}.png"),
             os.path.join(grid_dir, f"{app_id}.jpg"),
@@ -102,19 +102,44 @@ def write_icon_to_grid(app_id, source_path, ftype):
         for legacy_plain in legacy_candidates:
             if os.path.exists(legacy_plain):
                 try:
-                    # If we already created the target, remove it so rename succeeds
-                    if os.path.exists(target):
-                        try:
-                            os.remove(target)
-                        except Exception:
-                            pass
-                    os.rename(legacy_plain, target)
-                    logger.log(f"write_icon_to_grid(): renamed legacy grid file {legacy_plain} -> {target}")
+                    shutil.copy2(legacy_plain, target)
+                    logger.log(f"write_icon_to_grid(): copied legacy grid file {legacy_plain} -> {target}")
                     break
                 except Exception as e:
-                    logger.log(f"write_icon_to_grid(): failed to rename legacy grid file {legacy_plain}: {e}")
+                    logger.log(f"write_icon_to_grid(): failed to copy legacy grid file {legacy_plain}: {e}")
     except Exception as e:
         logger.log(f"write_icon_to_grid(): failed to write icon: {e}")
+
+def ensure_grid_icon_copy(app_id, ftype="png"):
+    """
+    If Steam left a plain {appid}.png/jpg in grid, copy it to {appid}_icon.<ext>.
+    Does not delete the plain file to avoid fighting Steam writes.
+    """
+    try:
+        steam_root = get_steam_root()
+        if not steam_root:
+            return
+        userdata = os.path.join(steam_root, "userdata")
+        user_dir = pick_user_dir(userdata)
+        if not user_dir:
+            return
+        grid_dir = os.path.join(userdata, user_dir, "config", "grid")
+        target = os.path.join(grid_dir, f"{app_id}_icon.{ftype}")
+        legacy_candidates = [
+            os.path.join(grid_dir, f"{app_id}.png"),
+            os.path.join(grid_dir, f"{app_id}.jpg"),
+            os.path.join(grid_dir, f"{app_id}.jpeg"),
+        ]
+        for legacy_plain in legacy_candidates:
+            if os.path.exists(legacy_plain):
+                try:
+                    shutil.copy2(legacy_plain, target)
+                    logger.log(f"ensure_grid_icon_copy(): copied legacy grid file {legacy_plain} -> {target}")
+                    break
+                except Exception as e:
+                    logger.log(f"ensure_grid_icon_copy(): failed to copy {legacy_plain}: {e}")
+    except Exception:
+        pass
 
 def get_config():
     if not os.path.exists(get_config_fname()):
@@ -343,6 +368,8 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
     # For icons, also write into Steam's grid folder with the proper suffix
     if image_type == 4:
         write_icon_to_grid(app_id, fname, ftype)
+        # Also copy any legacy plain grid file to the _icon name to cover Steam writes
+        ensure_grid_icon_copy(app_id, ftype)
 
     logger.log(f"get_cached_file() -> {fname}")
     return f"{ftype};{get_encoded_image(fname)}"
