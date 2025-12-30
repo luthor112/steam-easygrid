@@ -138,17 +138,29 @@ def write_icon_to_grid(app_id, source_path, ftype):
         except Exception as e:
             logger.log(f"write_icon_to_grid(): failed to backup wide art: {e}")
 
-        # Give Steam a moment to write its own files, then restore wide art if Steam overwrote it with an icon.
+        # Steam may overwrite {appid}.png later (we've seen ~30s delay). Monitor in a background thread
+        # and restore wide art if Steam clobbers it with an icon-like image.
         try:
-            deadline = time.time() + 10.0
-            while time.time() < deadline:
-                if os.path.exists(plain) and os.path.exists(wide_backup) and is_icon_like_png(plain):
-                    shutil.copy2(wide_backup, plain)
-                    logger.log(f"write_icon_to_grid(): restored wide art {wide_backup} -> {plain}")
-                    break
-                time.sleep(0.25)
+            import threading
+
+            def monitor_and_restore():
+                try:
+                    deadline = time.time() + 90.0
+                    while time.time() < deadline:
+                        if os.path.exists(plain) and os.path.exists(wide_backup) and is_icon_like_png(plain):
+                            shutil.copy2(wide_backup, plain)
+                            logger.log(
+                                f"write_icon_to_grid(): restored wide art after late overwrite {wide_backup} -> {plain}"
+                            )
+                            # keep watching in case Steam overwrites again
+                        time.sleep(1.0)
+                except Exception as monitor_err:
+                    logger.log(f"write_icon_to_grid(): monitor failed: {monitor_err}")
+
+            t = threading.Thread(target=monitor_and_restore, daemon=True)
+            t.start()
         except Exception as e:
-            logger.log(f"write_icon_to_grid(): failed restoring wide art: {e}")
+            logger.log(f"write_icon_to_grid(): failed starting monitor: {e}")
     except Exception as e:
         logger.log(f"write_icon_to_grid(): failed to write icon: {e}")
 
