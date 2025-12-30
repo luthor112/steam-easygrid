@@ -75,6 +75,7 @@ def pick_user_dir(userdata_path):
 def write_icon_to_grid(app_id, source_path, ftype):
     """Write the icon into Steam's grid folder with _icon suffix."""
     try:
+        import time
         steam_root = get_steam_root()
         if not steam_root:
             logger.log("write_icon_to_grid(): Steam root not resolved")
@@ -89,6 +90,12 @@ def write_icon_to_grid(app_id, source_path, ftype):
             return
         grid_dir = os.path.join(userdata, user_dir, "config", "grid")
         os.makedirs(grid_dir, exist_ok=True)
+
+        # If the user already has a wide/header set, Steam stores it as {appid}.png.
+        # Some Steam builds also write icons into {appid}.png; preserve the wide art by restoring it if overwritten.
+        plain = os.path.join(grid_dir, f"{app_id}.png")
+        wide_backup = os.path.join(grid_dir, f"{app_id}_wide_backup.png")
+
         target = os.path.join(grid_dir, f"{app_id}_icon.{ftype}")
         shutil.copy2(source_path, target)
         logger.log(f"write_icon_to_grid(): wrote icon to {target}")
@@ -112,18 +119,36 @@ def write_icon_to_grid(app_id, source_path, ftype):
             except Exception:
                 return None
 
-        # Some Steam builds store icons as {appid}.png (same filename header uses).
-        # Write BOTH {appid}_icon.png and {appid}.png (only when the *selected* image looks like an icon),
-        # so we don't accidentally clobber header art.
-        if str(ftype).lower() == "png":
-            plain = os.path.join(grid_dir, f"{app_id}.png")
-            src_size = try_read_png_size(source_path)
-            if src_size and src_size[0] == src_size[1] and src_size[0] <= 512:
-                try:
-                    shutil.copy2(source_path, plain)
-                    logger.log(f"write_icon_to_grid(): also wrote icon to {plain}")
-                except Exception as e:
-                    logger.log(f"write_icon_to_grid(): failed to write icon to {plain}: {e}")
+        def is_icon_like_png(path):
+            size = try_read_png_size(path)
+            return bool(size and size[0] == size[1] and size[0] <= 512)
+
+        def is_wide_like_png(path):
+            size = try_read_png_size(path)
+            return bool(size and (size[0] != size[1] or max(size[0], size[1]) > 512))
+
+        # Snapshot current wide/header art if present
+        try:
+            if os.path.exists(plain) and is_wide_like_png(plain):
+                plain_mtime = os.path.getmtime(plain)
+                backup_mtime = os.path.getmtime(wide_backup) if os.path.exists(wide_backup) else -1
+                if plain_mtime > backup_mtime:
+                    shutil.copy2(plain, wide_backup)
+                    logger.log(f"write_icon_to_grid(): backed up wide art {plain} -> {wide_backup}")
+        except Exception as e:
+            logger.log(f"write_icon_to_grid(): failed to backup wide art: {e}")
+
+        # Give Steam a moment to write its own files, then restore wide art if Steam overwrote it with an icon.
+        try:
+            deadline = time.time() + 10.0
+            while time.time() < deadline:
+                if os.path.exists(plain) and os.path.exists(wide_backup) and is_icon_like_png(plain):
+                    shutil.copy2(wide_backup, plain)
+                    logger.log(f"write_icon_to_grid(): restored wide art {wide_backup} -> {plain}")
+                    break
+                time.sleep(0.25)
+        except Exception as e:
+            logger.log(f"write_icon_to_grid(): failed restoring wide art: {e}")
     except Exception as e:
         logger.log(f"write_icon_to_grid(): failed to write icon: {e}")
 
