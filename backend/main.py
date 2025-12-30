@@ -116,6 +116,7 @@ def ensure_grid_icon_copy(app_id, ftype="png"):
     Does not delete the plain file to avoid fighting Steam writes.
     """
     try:
+        import time
         steam_root = get_steam_root()
         if not steam_root:
             return
@@ -130,14 +131,23 @@ def ensure_grid_icon_copy(app_id, ftype="png"):
             os.path.join(grid_dir, f"{app_id}.jpg"),
             os.path.join(grid_dir, f"{app_id}.jpeg"),
         ]
-        for legacy_plain in legacy_candidates:
-            if os.path.exists(legacy_plain):
-                try:
-                    shutil.copy2(legacy_plain, target)
-                    logger.log(f"ensure_grid_icon_copy(): copied legacy grid file {legacy_plain} -> {target}")
-                    break
-                except Exception as e:
-                    logger.log(f"ensure_grid_icon_copy(): failed to copy {legacy_plain}: {e}")
+        # Steam sometimes writes the plain file slightly after our call; retry briefly.
+        for _ in range(5):
+            copied = False
+            for legacy_plain in legacy_candidates:
+                if os.path.exists(legacy_plain):
+                    try:
+                        shutil.copy2(legacy_plain, target)
+                        logger.log(
+                            f"ensure_grid_icon_copy(): copied legacy grid file {legacy_plain} -> {target}"
+                        )
+                        copied = True
+                        break
+                    except Exception as e:
+                        logger.log(f"ensure_grid_icon_copy(): failed to copy {legacy_plain}: {e}")
+            if copied:
+                break
+            time.sleep(0.2)
     except Exception:
         pass
 
