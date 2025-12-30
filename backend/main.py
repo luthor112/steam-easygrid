@@ -246,6 +246,15 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         fname = os.path.join(get_cache_dir(), f"{app_id}_wide_{image_num}.{ftype}")
     else:
         fname = os.path.join(get_cache_dir(), f"{app_id}p_{image_num}.{ftype}")
+
+    # If a legacy-named file exists (appid_imagetype_index.png), rename it to the new convention
+    legacy_fname = os.path.join(get_cache_dir(), f"{app_id}_{image_type}_{image_num}.{ftype}")
+    if not os.path.exists(fname) and os.path.exists(legacy_fname):
+        try:
+            os.rename(legacy_fname, fname)
+            logger.log(f"Renamed legacy cache file {legacy_fname} -> {fname}")
+        except Exception as e:
+            logger.log(f"Failed to rename legacy cache file {legacy_fname} -> {fname}: {e}")
     if not os.path.exists(fname):
         logger.log("get_cached_file(): Downloading...")
         with requests.get(image_url, stream=True) as r:
