@@ -43,12 +43,20 @@ def get_game_db_fname():
     return os.path.join(PLUGIN_BASE_DIR, "game_db.json")
 
 def get_steam_root():
-    """Resolve the Steam root based on the plugin location."""
+    """Resolve the Steam root by walking up from the plugin directory until we find userdata."""
     try:
-        # Plugin lives at <steam>/plugins/steam-easygrid
-        return os.path.abspath(os.path.join(PLUGIN_BASE_DIR, os.pardir, os.pardir))
+        path = os.path.abspath(PLUGIN_BASE_DIR)
+        for _ in range(5):
+            candidate = os.path.abspath(path)
+            if os.path.isdir(os.path.join(candidate, "userdata")):
+                return candidate
+            parent = os.path.abspath(os.path.join(path, os.pardir))
+            if parent == path:
+                break
+            path = parent
     except Exception:
-        return None
+        pass
+    return None
 
 def pick_user_dir(userdata_path):
     """Pick a Steam user dir (numeric) by most recent mtime."""
