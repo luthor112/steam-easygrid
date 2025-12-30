@@ -49,14 +49,15 @@ async function renderHome(popup: any) {
                 const collName = collectionStore.userCollections[i].m_strName;
                 extraMenuItems.push(<MenuItem onClick={async () => {
                     const currentColl = collectionStore.GetCollection(collId);
-                    for (let j = 0; j < currentColl.allApps.length; j++) {
-                        gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                        const newImage = await get_image({app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true, is_replace_collection: true});
+                        for (let j = 0; j < currentColl.allApps.length; j++) {
+                            gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
+                            const newImage = await get_image({app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true, is_replace_collection: true});
                             if (!newImage) {
                                 continue;
                             }
                             const newImageParts = newImage.split(";", 2);
-                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], newImageParts[0], 0);
+                            const mime = newImageParts[0].startsWith("image/") ? newImageParts[0] : `image/${newImageParts[0]}`;
+                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], mime, 0);
                         }
                     gridButton.firstChild.innerHTML = "Done!";
                     console.log("[steam-easygrid 3] Grids replaced for", collId);
@@ -105,7 +106,8 @@ async function renderCollection(popup: any) {
                                 continue;
                             }
                             const newImageParts = newImage.split(";", 2);
-                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], newImageParts[0], 0);
+                            const mime = newImageParts[0].startsWith("image/") ? newImageParts[0] : `image/${newImageParts[0]}`;
+                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], mime, 0);
                         }
                         gridButton.firstChild.innerHTML = "Done!";
                         console.log("[steam-easygrid 3] Grids replaced for", uiStore.currentGameListSelection.strCollectionId);
@@ -200,7 +202,8 @@ function getEasyGridComponent(popup: any) {
                 return;
             }
             const newImageParts = newImage.split(";", 2);
-            SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], newImageParts[0], props.imagetype);
+            const mime = newImageParts[0].startsWith("image/") ? newImageParts[0] : `image/${newImageParts[0]}`;
+            SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], mime, props.imagetype);
             setCurrentImageNum(targetNum);
         };
 
@@ -305,7 +308,7 @@ async function renderApp(popup: any) {
                             const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
 
                             //const allImageTypes = 5;
-                            const allImageTypes = 4;    // Icons are disabled for now
+                            const allImageTypes = 5;    // Include icons
                             for (let j = 0; j < allImageTypes; j++) {
                                 gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
                                 const newImage = await get_image({app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: j, image_num: 0, set_current: true});
@@ -313,7 +316,8 @@ async function renderApp(popup: any) {
                                     continue;
                                 }
                                 const newImageParts = newImage.split(";", 2);
-                                SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], j);
+                                const mime = newImageParts[0].startsWith("image/") ? newImageParts[0] : `image/${newImageParts[0]}`;
+                                SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], mime, j);
                             }
                             gridButton.firstChild.innerHTML = "SG";
                             console.log("[steam-easygrid 3] Images replaced for", uiStore.currentGameListSelection.nAppId);
