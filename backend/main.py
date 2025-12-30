@@ -235,7 +235,9 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
 
     ftype = "png"
     logger.log(f"get_cached_file(): Image filetype is {ftype}")
-    fname = os.path.join(get_cache_dir(), f"{app_id}_{image_type}_{image_num}.{ftype}")
+    # Name cached files with meaningful suffixes; icons use _icon to mirror Steam convention
+    suffix = "_icon" if image_type == 4 else f"_{image_type}"
+    fname = os.path.join(get_cache_dir(), f"{app_id}{suffix}_{image_num}.{ftype}")
     if not os.path.exists(fname):
         logger.log("get_cached_file(): Downloading...")
         with requests.get(image_url, stream=True) as r:
