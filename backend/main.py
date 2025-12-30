@@ -93,6 +93,38 @@ def write_icon_to_grid(app_id, source_path, ftype):
         shutil.copy2(source_path, target)
         logger.log(f"write_icon_to_grid(): wrote icon to {target}")
 
+        def try_read_png_size(path):
+            try:
+                with open(path, "rb") as f:
+                    header = f.read(24)
+                if len(header) < 24:
+                    return None
+                # PNG signature
+                if header[0:8] != b\"\\x89PNG\\r\\n\\x1a\\n\":
+                    return None
+                # IHDR chunk starts at byte 12
+                if header[12:16] != b\"IHDR\":
+                    return None
+                import struct
+                width = struct.unpack(\">I\", header[16:20])[0]
+                height = struct.unpack(\">I\", header[20:24])[0]
+                return (width, height)
+            except Exception:
+                return None
+
+        # Some Steam builds store icons as {appid}.png (same filename header uses).
+        # Only overwrite {appid}.png when it looks like an icon (square and not huge),
+        # so we don't clobber header art.
+        if str(ftype).lower() == \"png\":
+            plain = os.path.join(grid_dir, f\"{app_id}.png\")
+            size = try_read_png_size(plain) if os.path.exists(plain) else None
+            if (not os.path.exists(plain)) or (size and size[0] == size[1] and size[0] <= 512):
+                try:
+                    shutil.copy2(source_path, plain)
+                    logger.log(f\"write_icon_to_grid(): also wrote icon to {plain}\")
+                except Exception as e:
+                    logger.log(f\"write_icon_to_grid(): failed to write icon to {plain}: {e}\")
+
         # If Steam created a plain {appid} file, copy it to the icon naming so it stays consistent
         legacy_candidates = [
             os.path.join(grid_dir, f"{app_id}.png"),
