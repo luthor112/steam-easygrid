@@ -424,6 +424,33 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
             logger.log(f"Renamed legacy cache file {legacy_fname} -> {fname}")
         except Exception as e:
             logger.log(f"Failed to rename legacy cache file {legacy_fname} -> {fname}: {e}")
+
+    def try_read_png_size(path):
+        try:
+            with open(path, "rb") as f:
+                header = f.read(24)
+            if len(header) < 24:
+                return None
+            if header[0:8] != b"\x89PNG\r\n\x1a\n":
+                return None
+            if header[12:16] != b"IHDR":
+                return None
+            import struct
+            width = struct.unpack(">I", header[16:20])[0]
+            height = struct.unpack(">I", header[20:24])[0]
+            return (width, height)
+        except Exception:
+            return None
+
+    # If we previously cached an oversized icon, purge it so we re-download at the desired size (e.g., 256x256).
+    if image_type == 4 and os.path.exists(fname):
+        size = try_read_png_size(fname)
+        if size and (size[0] != size[1] or size[0] > 256):
+            try:
+                os.remove(fname)
+                logger.log(f"Purged oversized cached icon {fname} ({size[0]}x{size[1]})")
+            except Exception as e:
+                logger.log(f"Failed to purge oversized cached icon {fname}: {e}")
     if not os.path.exists(fname):
         logger.log("get_cached_file(): Downloading...")
         with requests.get(image_url, stream=True) as r:
