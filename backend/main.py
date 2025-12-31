@@ -6,6 +6,8 @@ import glob
 import json
 import os
 import shutil
+import urllib.parse
+import re
 
 try:
     import requests
@@ -307,11 +309,47 @@ def get_sgdb_id(app_name, app_id):
         logger.log("get_sgdb_id(): Fallback disabled")
         return None
 
-    search_response = requests.get(f"https://www.steamgriddb.com/api/v2/search/autocomplete/{app_name}", headers=headers)
+    safe_name = urllib.parse.quote(str(app_name))
+    search_response = requests.get(
+        f"https://www.steamgriddb.com/api/v2/search/autocomplete/{safe_name}", headers=headers
+    )
     if search_response.status_code == 200:
         data = search_response.json()
         if data["success"] and len(data["data"]) > 0:
-            sgdb_id = data["data"][0]["id"]
+            target = str(app_name).strip().lower()
+            target_norm = re.sub(r"[^a-z0-9]+", "", target)
+            target_digits = "".join(re.findall(r"\d+", target))
+
+            best = None
+            best_score = -10**9
+            for item in data["data"]:
+                cand_name = str(item.get("name", "")).strip().lower()
+                cand_norm = re.sub(r"[^a-z0-9]+", "", cand_name)
+                cand_digits = "".join(re.findall(r"\d+", cand_name))
+                score = 0
+                if cand_norm == target_norm and target_norm:
+                    score += 1000
+                if target and target in cand_name:
+                    score += 100
+                if cand_name and cand_name in target:
+                    score += 25
+                if target_digits:
+                    if cand_digits == target_digits:
+                        score += 200
+                    else:
+                        score -= 500
+                # Prefer closer length match
+                score -= abs(len(cand_norm) - len(target_norm))
+
+                if score > best_score:
+                    best_score = score
+                    best = item
+
+            if best:
+                sgdb_id = best.get("id")
+                logger.log(
+                    f"get_sgdb_id(): Fallback selected '{best.get('name')}' (id={sgdb_id}, score={best_score})"
+                )
         else:
             logger.log("get_sgdb_id(): Unsuccessful - 'success' is false or no data")
     else:
@@ -548,9 +586,24 @@ class Backend:
     @staticmethod
     def purge_cache(app_id):
         logger.log(f"purge_cache() called for app {app_id}")
+        app_id_str = str(app_id)
+        try:
+            if app_id_str in game_db.get("overrides", {}):
+                del game_db["overrides"][app_id_str]
+                save_game_db()
+        except Exception as e:
+            logger.log(f"purge_cache(): failed removing override for {app_id}: {e}")
         delete_app_from_db(app_id)
-        for f in glob.glob(os.path.join(get_cache_dir(), f"{app_id}_*")):
-            os.remove(f)
+        patterns = [
+            os.path.join(get_cache_dir(), f"{app_id}_*"),
+            os.path.join(get_cache_dir(), f"{app_id}p_*"),
+        ]
+        for pat in patterns:
+            for f in glob.glob(pat):
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
         return True
 
     @staticmethod
