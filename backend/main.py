@@ -354,6 +354,9 @@ def get_cached_file(app_name, app_id, image_type, image_num, set_current):
         query_param = {}
         if f"{type_dict[image_type]}_config" in get_config():
             query_param = get_config()[f"{type_dict[image_type]}_config"]
+        # Steam appears to prefer smaller square icons; request 256x256 for icons (SGDBoop-compatible).
+        if image_type == 4 and "dimensions" not in query_param:
+            query_param["dimensions"] = "256x256"
 
         original_types = query_param["types"]
         query_param["types"] = "animated"
