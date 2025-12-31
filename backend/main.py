@@ -333,11 +333,21 @@ def get_sgdb_id(app_name, app_id):
                     score += 100
                 if cand_name and cand_name in target:
                     score += 25
+                if target_norm and cand_norm.startswith(target_norm) and len(cand_norm) > len(target_norm):
+                    score += 50
                 if target_digits:
                     if cand_digits == target_digits:
                         score += 200
                     else:
                         score -= 500
+                else:
+                    # If the user didn't type a number, prefer sequel entries (e.g. "... 4") over the base title
+                    # when the candidate is an extension of the typed prefix.
+                    if target_norm and cand_norm.startswith(target_norm) and cand_digits:
+                        try:
+                            score += min(int(cand_digits), 20) * 30
+                        except Exception:
+                            pass
                 # Prefer closer length match
                 score -= abs(len(cand_norm) - len(target_norm))
 
