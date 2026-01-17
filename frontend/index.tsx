@@ -91,6 +91,10 @@ function getExcludedAppIDs() {
 
 async function callAPI(endpoint) {
     const apiAnswerStr = await call_api_backend({ a_bearer: pluginConfig.api_key, b_endpoint: endpoint });
+    if (apiAnswerStr === "") {
+        console.log("[steam-easygrid 4] Unsuccessful HTTP request");
+        return undefined;
+    }
     const apiAnswer = JSON.parse(apiAnswerStr);
     if ("http_status" in apiAnswer) {
         console.log("[steam-easygrid 4] Unsuccessful API call - HTTP", apiAnswer["http_status"]);
@@ -174,10 +178,26 @@ async function getSearchData(appId, imgType) {
     let searchData = [];
     if (pluginConfig.prioritize_animated) {
         searchData = await searchAllPages(appId, imgType, "animated");
-        searchDataStatic = await searchAllPages(appId, imgType, "static");
+        for (let i = 0; i < searchData.length; i++) {
+            searchData[i]["type"] = "animated";
+        }
+        
+        let searchDataStatic = await searchAllPages(appId, imgType, "static");
+        for (let i = 0; i < searchDataStatic.length; i++) {
+            searchDataStatic[i]["type"] = "static";
+        }
+        
         searchData = { ...searchData, ...searchDataStatic };
     } else {
         searchData = await searchAllPages(appId, imgType, undefined);
+        const searchDataAnimated = await searchAllPages(appId, imgType, "animated");
+        for (let i = 0; i < searchData.length; i++) {
+            if (searchDataAnimated.find(x => x.id === searchData[i].id)) {
+                searchData[i]["type"] = "animated";
+            } else {
+                searchData[i]["type"] = "static";
+            }
+        }
     }
     searchCache[appId.toString()][imgTypeDict[imgType]] = searchData;
     return searchData;
@@ -322,73 +342,37 @@ function getEasyGridComponent(popup: any) {
             borderRadius: '8px'
         };
 
-        const [currentImageNum, setCurrentImageNum] = useState<number>(-1);
-        const [maxImageNum, setMaxImageNum] = useState<number>(-1);
+        const [steamGridDBId, setSteamGridDBId] = useState<number>(-1);
         const [thumbnailList, setThumbnailList] = useState([]);
 
         const GetCurrentSettings = async () => {
-            await get_image({
-                app_name: props.appname,
-                app_id: props.appid,
-                image_type: props.imagetype,
-                image_num: -1,
-                set_current: false
-            });
-
-            setCurrentImageNum(await get_current_index({
-                app_id: props.appid,
-                image_type: props.imagetype
-            }));
-            setMaxImageNum(await get_max_index({
-                app_id: props.appid,
-                image_type: props.imagetype
-            }));
-            setThumbnailList(JSON.parse(await get_thumb_list({
-                app_id: props.appid,
-                image_type: props.imagetype
-            })));
+            setSteamGridDBId(await getSteamGridDBId(props.appid));
+            setThumbnailList(await getSearchData(props.appid, props.imagetype));
         };
 
         const PurgeImageCache = async () => {
             console.log("[steam-easygrid 4] Purging cache and reloading...");
-            await purge_cache({app_id: props.appid});
+            searchCache[props.appid.toString()] = {};
             GetCurrentSettings();
         };
 
         const SetNewImage = async (e) => {
             const targetNum = Number(e.target.dataset.imageindex);
             console.log("[steam-easygrid 4] Setting image to:", targetNum);
-            const newImage = await get_image({
-                app_name: props.appname,
-                app_id: props.appid,
-                image_type: props.imagetype,
-                image_num: targetNum,
-                set_current: true
-            });
-            if (newImage !== "") {
-                const newImageParts = newImage.split(";", 2);
-                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImageParts[1], newImageParts[0], props.imagetype);
-                setCurrentImageNum(targetNum);
+            const newImage = await getImageData(props.appid, props.imagetype, targetNum);
+            if (newImage) {
+                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, 'png', props.imagetype);
             }
         };
 
         const SetOriginalImage = async (e) => {
             console.log("[steam-easygrid 4] Resetting image...");
             SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
-            await get_image({
-                app_name: props.appname,
-                app_id: props.appid,
-                image_type: props.imagetype,
-                image_num: -1,
-                set_current: true
-            });
-            setCurrentImageNum(-1);
         };
 
         const OpenWebpage = async () => {
             console.log("[steam-easygrid 4] Opening SGDB Webpage...");
-            const sgdbGameId = await getSteamGridDBId(props.appid);
-            window.open(`https://www.steamgriddb.com/game/${sgdbGameId}`, "_blank");
+            window.open(`https://www.steamgriddb.com/game/${steamGridDBId}`, "_blank");
         };
 
         useEffect(() => {
@@ -397,24 +381,22 @@ function getEasyGridComponent(popup: any) {
 
         return (
             <div>
-                App ID: {props.appid} / App Name: {props.appname} / Image
-                Type: {props.imagetype} <br/>
-                Current: {currentImageNum} / Max: {maxImageNum} <br/>
+                App ID: {props.appid} / SGDB ID: {steamGridDBId} / Image Type: {props.imagetype} (found {thumbnailList.length}) <br/>
                 <DialogButton style={{width: "120px", display: "inline-block"}} onClick={SetOriginalImage}>Reset</DialogButton> &nbsp;
                 <DialogButton style={{width: "120px", display: "inline-block"}} onClick={PurgeImageCache}>Purge Cache</DialogButton> &nbsp;
                 <DialogButton style={{width: "120px", display: "inline-block"}} onClick={OpenWebpage}>Open Webpage</DialogButton><br/>
                 <div style={containerStyle}>
                     {thumbnailList.map((thumbData, index) => {
-                        if (thumbData[1] === "static")
+                        if (thumbData["type"] === "static")
                             return (
                                 <div style={imageWrapperStyle}>
-                                    <img key={index} data-imageindex={index} src={thumbData[0]} alt={thumbData[1]} style={imageStyle} onClick={SetNewImage}/>
+                                    <img key={index} data-imageindex={index} src={thumbData["thumb"]} alt={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
                                 </div>
                             );
 
                         return (
                             <div style={imageWrapperStyle}>
-                                <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData[0]} alt={thumbData[1]} style={imageStyle} onClick={SetNewImage}/>
+                                <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData["thumb"]} alt={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
                             </div>
                         );
                     })}
