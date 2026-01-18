@@ -141,12 +141,12 @@ async function getSteamGridDBId(appId: number): Promise<number | undefined> {
 }
 
 async function searchAllPages(appId, imgType, typesOverride) {
-    // TODO: Pagination
     const gameId = await getSteamGridDBId(appId);
     if (gameId) {
         const imgTypeName = imgTypeDict[imgType];
         const imgSearchTypeName = imgType === 3 ? "grids" : imgTypeName;
         const usedConfig = pluginConfig[`${imgTypeName}_config`];
+        let fullResult = [];
 
         let qString = `nsfw=${usedConfig.nsfw}&humor=${usedConfig.humor}&epilepsy=${usedConfig.epilepsy}&mimes=${usedConfig.mimes}&styles=${usedConfig.styles}`;
         if (typesOverride) {
@@ -158,10 +158,21 @@ async function searchAllPages(appId, imgType, typesOverride) {
             qString += `&dimensions=${usedConfig.dimensions}`;
         }
 
-        const searchResult = await callAPI(`${imgSearchTypeName}/game/${gameId}?${qString}`);
-        if (searchResult) {
-            return searchResult["data"];
+        let page = 0;
+        while(true) {
+            const searchResult = await callAPI(`${imgSearchTypeName}/game/${gameId}?${qString}&page=${page}`);
+            if (searchResult && searchResult["data"].length > 0) {
+                fullResult = fullResult.concat(searchResult["data"]);
+                if (searchResult["data"].length < 50) {
+                    break;
+                }
+                page++;
+            } else {
+                break;
+            }
         }
+
+        return fullResult;
     }
     return [];
 }

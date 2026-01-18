@@ -7,25 +7,16 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - Switch the Background image (hero), Logo, Cover image (grid), Wide Cover image (wide grid) or Icon of an app with ones from SteamGridDB via a window opened by double-clicking the header
     - Or automatically switch all images of an app using the `SG` button
 - Set custom height for the Background image (hero)
+    - Good ones are e.g. `530px` or `1240px`
 
 ## Notices
-
-- Setting icons doesn't work at the moment, and has been disabled
-- The plugin should now work even if the `requests` module fails to load
+- The plugin needs an API key to work, set it in the Configuration
+- Setting icons can be enabled in the Configuration
+    - Feature might or might not work
 - Several new fixes have been implemented to make sure the plugin actually works
 
 ## Configuration
-- Configuration file: `<STEAM>\plugins\steam-easygrid\config.json`
-- Set `api_key` to your [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
-- Fallback to searching by name can be disabled by setting `display_name_fallback` to `false`
-- When replacing all grid images in a collection, to disable skipping apps with a custom grid already set by the plugin, set `replace_custom_images` to `false`
-- When replacing all grid images in a collection, to skip a given app, add it to the `appids_excluded_from_replacement` list
-- To prioritize animated images, set `prioritize_animated` to `true`
-- To set a custom Background image (hero) height, set `expand_headers` to the desired value (e.g. `530px` or `1240px`)
-- To hide the `SG` button on app pages, set `app_page_button` to `false`
-- `grids_config`, `wide_grids_config`, `heroes_config`, `logos_config` and `icons_config` can be set to a dictionary with any extra parameters you want to add to the API queries
-    - The documentation for all API parameters can be found here: [https://www.steamgriddb.com/api](https://www.steamgriddb.com/api)
-- `grids_width_mult`, `heroes_width_mult` and `logos_width_mult` can be modified to scale images in the UI
+- Configuration options are available through the Millennium Library Manager
 
 ## Prerequisites
 - [Millennium](https://steambrew.app/)
@@ -34,9 +25,11 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 ## Known issues:
 - Be patient, every change can take a couple seconds
 - The whole page might not update when clicking "Purge Cache", until you change pages and change back
-- Setting icons doesn't work at the moment
+- Setting icons might or might not work
 - `Auto Replace Images` sometimes fails setting the Wide Grid image
 - If the plugin doesn't work, or randomly stops working, check [Troubleshooting](#troubleshooting)
+- Trying to set WebP files might crash Steam on Linux
+    - MIME types are overridable in the Configuration
 
 ## Contributors
 
@@ -51,9 +44,9 @@ Made with [contrib.rocks](https://contrib.rocks).
 # First run
 
 - Get your [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
-- If the file `<STEAM>\plugins\steam-easygrid\config.json` doesn't exist, make a copy of `defaults.json` and name it `config.json`
-- Fill the field `api_key` in `<STEAM>\plugins\steam-easygrid\config.json`
-- Restart Steam
+- Open the Millennium Library Manager
+- Click on Easy SteamGrid
+- Paste your API key into the textbox
 
 # Using Grid images from SteamGridDB for entire Collections - from Home
 
@@ -89,10 +82,9 @@ Made with [contrib.rocks](https://contrib.rocks).
 - In the right page, click the image you want to use
 - The following extra controls are shown:
     - `Reset` button: Resets the image back to the default one
-    - `Purge Cache` button: Purges all cached links and files for the given app, forcing a new search and new downloads
+    - `Purge Cache` button: Purges all cached links for the given app, forcing a new search and new downloads
         - This is a good first try when something stops working
     - `Open Webpage` button: Opens the app's SGDB webpage in your browser
-- Image numbers start at 0, with -1 meaning "not set"
 
 # Using all images from SteamGridDB (but automatically)
 
@@ -108,12 +100,3 @@ If the plugin doesn't find any art for an app, click the `Open Webpage` button t
 When someting stops working, a good first step is to try pruging the cache of the given app:
 - Double-click the header of the app
 - Click `Purge Cache`, this will purge cached links and files, hopefully fixing the problem
-
-If purging the cache doesn't fix the problem, try the nuclear option:
-- Delete the database stored at `<STEAM>\plugins\steam-easygrid\game_db.json`
-- Delete the cache stored at `<STEAM>\plugins\steam-easygrid\artcache`
-- Restart Steam
-
-If the plugin doesn't work, or randomly stops working, try modifying with the following values in your `config.json`:
-- `stagger_main_load`: Delay loading the plugin and registering hooks by the given time in milliseconds
-- `stagger_page_load`: Delay triggering page modification on page change by the given time in milliseconds
