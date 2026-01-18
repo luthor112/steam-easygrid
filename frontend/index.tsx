@@ -177,9 +177,9 @@ async function getSearchData(appId, imgType) {
 
     let searchData = [];
     if (pluginConfig.prioritize_animated) {
-        searchData = await searchAllPages(appId, imgType, "animated");
-        for (let i = 0; i < searchData.length; i++) {
-            searchData[i]["type"] = "animated";
+        const searchDataAnimated = await searchAllPages(appId, imgType, "animated");
+        for (let i = 0; i < searchDataAnimated.length; i++) {
+            searchDataAnimated[i]["type"] = "animated";
         }
         
         let searchDataStatic = await searchAllPages(appId, imgType, "static");
@@ -187,7 +187,7 @@ async function getSearchData(appId, imgType) {
             searchDataStatic[i]["type"] = "static";
         }
         
-        searchData = { ...searchData, ...searchDataStatic };
+        searchData = searchDataAnimated.concat(searchDataStatic);
     } else {
         searchData = await searchAllPages(appId, imgType, undefined);
         const searchDataAnimated = await searchAllPages(appId, imgType, "animated");
@@ -204,7 +204,7 @@ async function getSearchData(appId, imgType) {
 }
 
 async function getImageData(appId, imgType, imgNum) {
-    const searchResults = getSearchData(appId, imgType);
+    const searchResults = await getSearchData(appId, imgType);
     if (searchResults && searchResults.length > imgNum) {
         const imgURL = searchResults[imgNum].url;
         return await get_encoded_image({ img_url: imgURL });
@@ -231,11 +231,6 @@ async function renderHome(popup: any) {
                     const excludedAppIDs = getExcludedAppIDs();
                     for (let j = 0; j < currentColl.allApps.length; j++) {
                         gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                        /*const newImage = await get_image({app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true, is_replace_collection: true});
-                        if (newImage !== "") {
-                            const newImageParts = newImage.split(";", 2);
-                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], newImageParts[0], 0);
-                        }*/
                         if (currentColl.allApps[j].appid in excludedAppIDs) continue;
                         const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
                         if (newImage) {
@@ -250,7 +245,6 @@ async function renderHome(popup: any) {
                     for (let j = 0; j < currentColl.allApps.length; j++) {
                         gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                         SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
-                        //await get_image({app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: -1, set_current: true});
                     }
                     gridButton.firstChild.innerHTML = "Done!";
                     console.log("[steam-easygrid 4] Grids cleared for", collId);
@@ -285,11 +279,6 @@ async function renderCollection(popup: any) {
                         const excludedAppIDs = getExcludedAppIDs();
                         for (let j = 0; j < currentColl.allApps.length; j++) {
                             gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                            /*const newImage = await get_image({app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: 0, set_current: true, is_replace_collection: true});
-                            if (newImage !== "") {
-                                const newImageParts = newImage.split(";", 2);
-                                SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImageParts[1], newImageParts[0], 0);
-                            }*/
                             if (currentColl.allApps[j].appid in excludedAppIDs) continue;
                             const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
                             if (newImage) {
@@ -304,7 +293,6 @@ async function renderCollection(popup: any) {
                         for (let j = 0; j < currentColl.allApps.length; j++) {
                             gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                             SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
-                            //await get_image({app_name: currentColl.allApps[j].display_name, app_id: currentColl.allApps[j].appid, image_type: 0, image_num: -1, set_current: true});
                         }
                         gridButton.firstChild.innerHTML = "Done!";
                         console.log("[steam-easygrid 4] Grids cleared for", uiStore.currentGameListSelection.strCollectionId);
@@ -464,11 +452,6 @@ async function renderApp(popup: any) {
                             }
                             for (let j = 0; j < allImageTypes; j++) {
                                 gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
-                                /*const newImage = await get_image({app_name: currentApp.display_name, app_id: uiStore.currentGameListSelection.nAppId, image_type: j, image_num: 0, set_current: true});
-                                if (newImage !== "") {
-                                    const newImageParts = newImage.split(";", 2);
-                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImageParts[1], newImageParts[0], j);
-                                }*/
                                 const newImage = await getImageData(uiStore.currentGameListSelection.nAppId, j, 0);
                                 if (newImage) {
                                     SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, 'png', j);
