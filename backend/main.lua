@@ -24,7 +24,7 @@ function call_api_backend(a_bearer, b_endpoint)
 
     if response.status ~= 200 then
         logger:error(string.format("Got HTTP %d", response.status))
-        return string.format("{ 'http_status': %d }", response.status)
+        return string.format("{ \"http_status\": %d }", response.status)
     end
 
     return response.body

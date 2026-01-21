@@ -124,7 +124,7 @@ async function getSteamGridDBId(appId: number): Promise<number | undefined> {
             return gamesResponse["data"]["id"];
         } else if (pluginConfig.display_name_fallback) {
             const currentApp = appStore.allApps.find((x) => x.appid === appId);
-            const searchResponse = await callAPI(`search/autocomplete/${currentApp.display_name}`);
+            const searchResponse = await callAPI(`search/autocomplete/${encodeURIComponent(currentApp.display_name)}`);
             if (searchResponse) {
                 if (searchResponse["data"].length > 0) {
                     gameIDOverrides[appId.toString()] = searchResponse["data"][0]["id"];
