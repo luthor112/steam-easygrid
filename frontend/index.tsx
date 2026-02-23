@@ -23,6 +23,7 @@ var pluginConfig = {
     replace_custom_images: true,
     appids_excluded_from_replacement: "",
     prioritize_animated: false,
+    prioritize_authors: [],
     expand_headers: "",
     app_page_button: true,
     grids_config: {
@@ -177,6 +178,21 @@ async function searchAllPages(appId, imgType, typesOverride) {
     return [];
 }
 
+function orderSearchDataByAuthors(searchData: any[]): any[] {
+    const priorityAuthors: string[] = pluginConfig.prioritize_authors;
+    if (priorityAuthors.length > 0) {
+        searchData.sort((a, b) => {
+            const aIdx = priorityAuthors.findIndex(author => a.author?.name?.toLowerCase() === author.toLowerCase());
+            const bIdx = priorityAuthors.findIndex(author => b.author?.name?.toLowerCase() === author.toLowerCase());
+            const aRank = aIdx === -1 ? priorityAuthors.length : aIdx;
+            const bRank = bIdx === -1 ? priorityAuthors.length : bIdx;
+            return aRank - bRank;
+        });
+    }
+
+    return searchData;
+}
+
 async function getSearchData(appId, imgType) {
     if (!(appId.toString() in searchCache)) {
         searchCache[appId.toString()] = {};
@@ -188,16 +204,20 @@ async function getSearchData(appId, imgType) {
 
     let searchData = [];
     if (pluginConfig.prioritize_animated) {
-        const searchDataAnimated = await searchAllPages(appId, imgType, "animated");
+        let searchDataAnimated = await searchAllPages(appId, imgType, "animated");
         for (let i = 0; i < searchDataAnimated.length; i++) {
             searchDataAnimated[i]["type"] = "animated";
         }
-        
+
+        searchDataAnimated = orderSearchDataByAuthors(searchDataAnimated);
+
         let searchDataStatic = await searchAllPages(appId, imgType, "static");
         for (let i = 0; i < searchDataStatic.length; i++) {
             searchDataStatic[i]["type"] = "static";
         }
-        
+
+        searchDataStatic = orderSearchDataByAuthors(searchDataStatic);
+
         searchData = searchDataAnimated.concat(searchDataStatic);
     } else {
         searchData = await searchAllPages(appId, imgType, undefined);
@@ -209,6 +229,8 @@ async function getSearchData(appId, imgType) {
                 searchData[i]["type"] = "static";
             }
         }
+
+        searchData = orderSearchDataByAuthors(searchData);
     }
     searchCache[appId.toString()][imgTypeDict[imgType]] = searchData;
     return searchData;
@@ -580,6 +602,12 @@ const SingleSetting = (props) => {
                 <TextField disabled={isDisabled} defaultValue={pluginConfig[props.parentname][props.name]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.parentname][props.name] = e.currentTarget.value; saveConfig(); }} />
             </Field>
         );
+    } else if (props.type === "array") {
+        return (
+            <Field label={props.label} description={props.description} bottomSeparator="standard" focusable>
+                <TextField disabled={isDisabled} defaultValue={pluginConfig[props.name].join(", ")} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = e.currentTarget.value.split(",").map(s => s.trim()).filter(s => s.length > 0); saveConfig(); }} />
+            </Field>
+        );
     }
 }
 
@@ -603,6 +631,7 @@ const SettingsContent = () => {
             <SingleSetting name="replace_custom_images" type="bool" readonly={true} label="Always replace cusmtom Images" description="When replacing all grid images, replace custom set ones as well" />
             <SingleSetting name="appids_excluded_from_replacement" type="text" label="Exclude APPIDs from replacement" description="When replacing all grid images, skip these apps (separate by semicolon)" />
             <SingleSetting name="prioritize_animated" type="bool" label="Prioritize animated images" description="Prioritize animated images" />
+            <SingleSetting name="prioritize_authors" type="array" label="Prioritize Authors" description="Prioritize images by author (comma-separated, in order)" />
             <SingleSetting name="expand_headers" type="text" label="Expand app header size" description="Set custom header height" />
             <SingleSetting name="app_page_button" type="bool" label="Show SG button" description="Show SG button on application pages" />
             <ImageSearchSetting name="grids_config" label="Grids" />
