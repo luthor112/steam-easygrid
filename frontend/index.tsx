@@ -264,7 +264,8 @@ async function renderHome(popup: any) {
                         if (currentColl.allApps[j].appid in excludedAppIDs) continue;
                         const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
                         if (newImage) {
-                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, 'png', 0);
+                            const imageExt = await getImageExt(currentColl.allApps[j].appid, 0, 0);
+                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, imageExt, 0);
                         }
                     }
                     gridButton.firstChild.innerHTML = "Done!";
@@ -312,7 +313,8 @@ async function renderCollection(popup: any) {
                             if (currentColl.allApps[j].appid in excludedAppIDs) continue;
                             const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
                             if (newImage) {
-                                SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, 'png', 0);
+                                const imageExt = await getImageExt(currentColl.allApps[j].appid, 0, 0);
+                                SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, imageExt, 0);
                             }
                         }
                         gridButton.firstChild.innerHTML = "Done!";
@@ -379,7 +381,8 @@ function getEasyGridComponent(popup: any) {
             console.log("[steam-easygrid 4] Setting image to:", targetNum);
             const newImage = await getImageData(props.appid, props.imagetype, targetNum);
             if (newImage) {
-                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, 'png', props.imagetype);
+                const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
+                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt, props.imagetype);
             }
         };
 
@@ -484,7 +487,8 @@ async function renderApp(popup: any) {
                                 gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
                                 const newImage = await getImageData(uiStore.currentGameListSelection.nAppId, j, 0);
                                 if (newImage) {
-                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, 'png', j);
+                                    const imageExt = await getImageExt(uiStore.currentGameListSelection.nAppId, j, 0);
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, imageExt, j);
                                 }
                             }
                             gridButton.firstChild.innerHTML = "SG";
