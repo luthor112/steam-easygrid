@@ -25,6 +25,8 @@ var pluginConfig = {
     prioritize_animated: false,
     expand_headers: "",
     app_page_button: true,
+    disable_webp: true,
+    reapply_app_page: true,
     grids_config: {
         nsfw: "false",
         humor: "any",
@@ -148,7 +150,11 @@ async function searchAllPages(appId, imgType, typesOverride) {
         const usedConfig = pluginConfig[`${imgTypeName}_config`];
         let fullResult = [];
 
-        let qString = `nsfw=${usedConfig.nsfw}&humor=${usedConfig.humor}&epilepsy=${usedConfig.epilepsy}&mimes=${usedConfig.mimes}&styles=${usedConfig.styles}`;
+        let mimeList = usedConfig.mimes;
+        if (pluginConfig.disable_webp) {
+            mimeList = mimeList.replace("image/webp,", "").replace(",image/webp", "");
+        }
+        let qString = `nsfw=${usedConfig.nsfw}&humor=${usedConfig.humor}&epilepsy=${usedConfig.epilepsy}&mimes=${mimeList}&styles=${usedConfig.styles}`;
         if (typesOverride) {
             qString += `&types=${typesOverride}`;
         } else {
@@ -219,6 +225,19 @@ async function getImageData(appId, imgType, imgNum) {
     if (searchResults && searchResults.length > imgNum) {
         const imgURL = searchResults[imgNum].url;
         return await get_encoded_image({ img_url: imgURL });
+    }
+    return undefined;
+}
+
+async function getImageExt(appId, imgType, imgNum) {
+    const searchResults = await getSearchData(appId, imgType);
+    if (searchResults && searchResults.length > imgNum) {
+        const imgURL = searchResults[imgNum].url;
+        if(imgURL.endsWith(".jpg") || imgURL.endsWith(".jpeg") || imgURL.endsWith(".jfif")) {
+            return 'jpg';
+        } else {
+            return 'png';
+        }
     }
     return undefined;
 }
@@ -505,14 +524,17 @@ async function renderApp(popup: any) {
 async function renderAppAndObserve(popup: any) {
     await renderApp(popup);
 
-    const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
-    const topCapsuleObserver = new MutationObserver(async (mutationList, observer) => {
-        await renderApp(popup);
-    });
-    topCapsuleObserver.observe(topCapsuleDiv.parentNode, { subtree: true, childList: true, attributes: true });
+    if (pluginConfig.reapply_app_page) {
+        const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
+        const topCapsuleObserver = new MutationObserver(async (mutationList, observer) => {
+            await renderApp(popup);
+        });
+        topCapsuleObserver.observe(topCapsuleDiv.parentNode, { subtree: true, childList: true, attributes: true });
+    }
 }
 
 async function OnPopupCreation(popup: any) {
+    await sleep(10000);
     if (popup.m_strName === "SP Desktop_uid0") {
         var mwbm = undefined;
         while (!mwbm) {
@@ -590,6 +612,7 @@ const ImageSearchSetting = (props) => {
             <SingleSetting name="humor" parentname={props.name} type="textchild" label={`${props.label} :: humor`} description="any | true | false" />
             <SingleSetting name="epilepsy" parentname={props.name} type="textchild" label={`${props.label} :: epilepsy`} description="any | true | false" />
             <SingleSetting name="types" parentname={props.name} type="textchild" label={`${props.label} :: types`} description="Comma separated" />
+            <SingleSetting name="mimes" parentname={props.name} type="textchild" label={`${props.label} :: mimes`} description="Comma separated" />
             <SingleSetting name="styles" parentname={props.name} type="textchild" label={`${props.label} :: styles`} description="Comma separated" />
         </div>
     );
@@ -605,6 +628,8 @@ const SettingsContent = () => {
             <SingleSetting name="prioritize_animated" type="bool" label="Prioritize animated images" description="Prioritize animated images" />
             <SingleSetting name="expand_headers" type="text" label="Expand app header size" description="Set custom header height" />
             <SingleSetting name="app_page_button" type="bool" label="Show SG button" description="Show SG button on application pages" />
+            <SingleSetting name="disable_webp" type="bool" label="Disable WEBP support" description="Avoids crashes for some users" />
+            <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" />
             <ImageSearchSetting name="grids_config" label="Grids" />
             <ImageSearchSetting name="wide_grids_config" label="Wide Grids" />
             <ImageSearchSetting name="heroes_config" label="Heroes" />
@@ -619,17 +644,8 @@ const SettingsContent = () => {
     );
 };
 
-async function pluginMain() {
+export default definePlugin(async () => {
     console.log("[steam-easygrid 4] frontend startup");
-    await App.WaitForServicesInitialized();
-    await sleep(100);
-
-    while (
-        typeof g_PopupManager === 'undefined' ||
-        typeof MainWindowBrowserManager === 'undefined'
-    ) {
-        await sleep(100);
-    }
 
     const storedConfig = JSON.parse(localStorage.getItem("luthor112.steam-easygrid.config"));
     pluginConfig = { ...pluginConfig, ...storedConfig };
@@ -639,16 +655,8 @@ async function pluginMain() {
     gameIDOverrides = { ...gameIDOverrides, ...storedOverrides };
     console.log("[steam-easygrid 4] Overrides:", gameIDOverrides);
 
-    const doc = g_PopupManager.GetExistingPopup("SP Desktop_uid0");
-	if (doc) {
-		OnPopupCreation(doc);
-	}
+    Millennium.AddWindowCreateHook(OnPopupCreation);
 
-	g_PopupManager.AddPopupCreatedCallback(OnPopupCreation);
-}
-
-export default definePlugin(async () => {
-    await pluginMain();
     return {
         title: "Easy SteamGrid",
         icon: <IconsModule.Settings />,

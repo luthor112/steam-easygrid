@@ -13,7 +13,8 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - The plugin needs an API key to work, set it in the Configuration
 - Setting icons can be enabled in the Configuration
     - Feature might or might not work
-- Several new fixes have been implemented to make sure the plugin actually works
+- WEBP art has been disabled by default, as it caused crashes for some users
+    - Can be enabled in the Configuration
 
 ## Configuration
 - Configuration options are available through the Millennium Library Manager
@@ -21,6 +22,11 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 ## Prerequisites
 - [Millennium](https://steambrew.app/)
 - [SteamGridDB API key](https://www.steamgriddb.com/profile/preferences/api)
+
+## Installation
+- Copy the plugin ID from the [Millennium plugins](https://steambrew.app/plugins) page
+- Click `Plugins` and `Install a plugin` in the Millennium settings and paste the ID
+- Allow 10 seconds for the plugin to load after each startup
 
 ## Known issues:
 - Be patient, every change can take a couple seconds
