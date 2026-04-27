@@ -2,6 +2,11 @@ local logger = require("logger")
 local millennium = require("millennium")
 local http = require("http")
 
+local is_windows = package.config:sub(1, 1) == "\\"
+if is_windows then
+    utils = require("utils")
+end
+
 -- INTERFACES
 
 function call_api_backend(a_bearer, b_endpoint)
@@ -29,8 +34,7 @@ function call_api_backend(a_bearer, b_endpoint)
     return response.body
 end
 
-function get_encoded_image(img_url)
-    logger:info("Requesting image " .. img_url)
+local function get_encoded_image_linux(img_url)
     local tmpfile = "/tmp/sgdb_" .. tostring(os.time()) .. ".bin"
 
     local dl_handle = io.popen(string.format(
@@ -72,6 +76,28 @@ function get_encoded_image(img_url)
 
     logger:info(string.format("Image encoded %d chars", #(b64 or "")))
     return b64 or ""
+end
+
+local function get_encoded_image_windows(img_url)
+    local response, err = http.get(img_url)
+    if not response then
+        logger:error(err)
+        return ""
+    end
+    if response.status ~= 200 then
+        logger:error(string.format("Got HTTP %d", response.status))
+        return ""
+    end
+    return utils.base64_encode(response.body)
+end
+
+function get_encoded_image(img_url)
+    logger:info("Requesting image " .. img_url)
+    if is_windows then
+        return get_encoded_image_windows(img_url)
+    else
+        return get_encoded_image_linux(img_url)
+    end
 end
 
 function log_frontend(msg)
