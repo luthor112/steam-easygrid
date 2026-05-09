@@ -28,6 +28,12 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - Click `Plugins` and `Install a plugin` in the Millennium settings and paste the ID
 - Allow 10 seconds for the plugin to load after each startup
 
+## Installation - dev build
+- Download a dev build from GitHub Releases
+- Overwrite the contents of the plugin under the plugins directory (usually `c:\Program Files (x86)\Steam\plugins`)
+- Enable the plugin in the Millennium settings if needed
+- Allow 10 seconds for the plugin to load after each startup
+
 ## Known issues:
 - Be patient, every change can take a couple seconds
 - The whole page might not update when clicking "Purge Cache", until you change pages and change back
