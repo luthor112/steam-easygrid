@@ -26,6 +26,8 @@ var pluginConfig = {
     prioritize_authors: [],
     expand_headers: "",
     app_page_button: true,
+    disable_webp: true,
+    reapply_app_page: true,
     grids_config: {
         nsfw: "false",
         humor: "any",
@@ -149,7 +151,11 @@ async function searchAllPages(appId, imgType, typesOverride) {
         const usedConfig = pluginConfig[`${imgTypeName}_config`];
         let fullResult = [];
 
-        let qString = `nsfw=${usedConfig.nsfw}&humor=${usedConfig.humor}&epilepsy=${usedConfig.epilepsy}&mimes=${usedConfig.mimes}&styles=${usedConfig.styles}`;
+        let mimeList = usedConfig.mimes;
+        if (pluginConfig.disable_webp) {
+            mimeList = mimeList.replace("image/webp,", "").replace(",image/webp", "");
+        }
+        let qString = `nsfw=${usedConfig.nsfw}&humor=${usedConfig.humor}&epilepsy=${usedConfig.epilepsy}&mimes=${mimeList}&styles=${usedConfig.styles}`;
         if (typesOverride) {
             qString += `&types=${typesOverride}`;
         } else {
@@ -245,6 +251,19 @@ async function getImageData(appId, imgType, imgNum) {
     return undefined;
 }
 
+async function getImageExt(appId, imgType, imgNum) {
+    const searchResults = await getSearchData(appId, imgType);
+    if (searchResults && searchResults.length > imgNum) {
+        const imgURL = searchResults[imgNum].url;
+        if(imgURL.endsWith(".jpg") || imgURL.endsWith(".jpeg") || imgURL.endsWith(".jfif")) {
+            return 'jpg';
+        } else {
+            return 'png';
+        }
+    }
+    return undefined;
+}
+
 async function renderHome(popup: any) {
     const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
     const oldGridButton = headerDiv.querySelector('button.easygrid-button');
@@ -267,7 +286,8 @@ async function renderHome(popup: any) {
                         if (currentColl.allApps[j].appid in excludedAppIDs) continue;
                         const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
                         if (newImage) {
-                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, 'png', 0);
+                            const imageExt = await getImageExt(currentColl.allApps[j].appid, 0, 0);
+                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, imageExt, 0);
                         }
                     }
                     gridButton.firstChild.innerHTML = "Done!";
@@ -315,7 +335,8 @@ async function renderCollection(popup: any) {
                             if (currentColl.allApps[j].appid in excludedAppIDs) continue;
                             const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
                             if (newImage) {
-                                SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, 'png', 0);
+                                const imageExt = await getImageExt(currentColl.allApps[j].appid, 0, 0);
+                                SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, imageExt, 0);
                             }
                         }
                         gridButton.firstChild.innerHTML = "Done!";
@@ -382,7 +403,8 @@ function getEasyGridComponent(popup: any) {
             console.log("[steam-easygrid 4] Setting image to:", targetNum);
             const newImage = await getImageData(props.appid, props.imagetype, targetNum);
             if (newImage) {
-                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, 'png', props.imagetype);
+                const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
+                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt, props.imagetype);
             }
         };
 
@@ -487,7 +509,8 @@ async function renderApp(popup: any) {
                                 gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
                                 const newImage = await getImageData(uiStore.currentGameListSelection.nAppId, j, 0);
                                 if (newImage) {
-                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, 'png', j);
+                                    const imageExt = await getImageExt(uiStore.currentGameListSelection.nAppId, j, 0);
+                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, imageExt, j);
                                 }
                             }
                             gridButton.firstChild.innerHTML = "SG";
@@ -527,14 +550,17 @@ async function renderApp(popup: any) {
 async function renderAppAndObserve(popup: any) {
     await renderApp(popup);
 
-    const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
-    const topCapsuleObserver = new MutationObserver(async (mutationList, observer) => {
-        await renderApp(popup);
-    });
-    topCapsuleObserver.observe(topCapsuleDiv.parentNode, { subtree: true, childList: true, attributes: true });
+    if (pluginConfig.reapply_app_page) {
+        const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
+        const topCapsuleObserver = new MutationObserver(async (mutationList, observer) => {
+            await renderApp(popup);
+        });
+        topCapsuleObserver.observe(topCapsuleDiv.parentNode, { subtree: true, childList: true, attributes: true });
+    }
 }
 
 async function OnPopupCreation(popup: any) {
+    await sleep(10000);
     if (popup.m_strName === "SP Desktop_uid0") {
         var mwbm = undefined;
         while (!mwbm) {
@@ -618,6 +644,7 @@ const ImageSearchSetting = (props) => {
             <SingleSetting name="humor" parentname={props.name} type="textchild" label={`${props.label} :: humor`} description="any | true | false" />
             <SingleSetting name="epilepsy" parentname={props.name} type="textchild" label={`${props.label} :: epilepsy`} description="any | true | false" />
             <SingleSetting name="types" parentname={props.name} type="textchild" label={`${props.label} :: types`} description="Comma separated" />
+            <SingleSetting name="mimes" parentname={props.name} type="textchild" label={`${props.label} :: mimes`} description="Comma separated" />
             <SingleSetting name="styles" parentname={props.name} type="textchild" label={`${props.label} :: styles`} description="Comma separated" />
         </div>
     );
@@ -634,6 +661,8 @@ const SettingsContent = () => {
             <SingleSetting name="prioritize_authors" type="array" label="Prioritize Authors" description="Prioritize images by author (comma-separated, in order)" />
             <SingleSetting name="expand_headers" type="text" label="Expand app header size" description="Set custom header height" />
             <SingleSetting name="app_page_button" type="bool" label="Show SG button" description="Show SG button on application pages" />
+            <SingleSetting name="disable_webp" type="bool" label="Disable WEBP support" description="Avoids crashes for some users" />
+            <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" />
             <ImageSearchSetting name="grids_config" label="Grids" />
             <ImageSearchSetting name="wide_grids_config" label="Wide Grids" />
             <ImageSearchSetting name="heroes_config" label="Heroes" />
@@ -648,17 +677,8 @@ const SettingsContent = () => {
     );
 };
 
-async function pluginMain() {
+export default definePlugin(async () => {
     console.log("[steam-easygrid 4] frontend startup");
-    await App.WaitForServicesInitialized();
-    await sleep(100);
-
-    while (
-        typeof g_PopupManager === 'undefined' ||
-        typeof MainWindowBrowserManager === 'undefined'
-    ) {
-        await sleep(100);
-    }
 
     const storedConfig = JSON.parse(localStorage.getItem("luthor112.steam-easygrid.config"));
     pluginConfig = { ...pluginConfig, ...storedConfig };
@@ -668,16 +688,8 @@ async function pluginMain() {
     gameIDOverrides = { ...gameIDOverrides, ...storedOverrides };
     console.log("[steam-easygrid 4] Overrides:", gameIDOverrides);
 
-    const doc = g_PopupManager.GetExistingPopup("SP Desktop_uid0");
-	if (doc) {
-		OnPopupCreation(doc);
-	}
+    Millennium.AddWindowCreateHook(OnPopupCreation);
 
-	g_PopupManager.AddPopupCreatedCallback(OnPopupCreation);
-}
-
-export default definePlugin(async () => {
-    await pluginMain();
     return {
         title: "Easy SteamGrid",
         icon: <IconsModule.Settings />,

@@ -1,0 +1,37 @@
+name: Prerelease
+run-name: ${{ github.event_name }} by ${{ github.actor }} to ${{ github.ref }}
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g pnpm
+      - run: pnpm install
+      - run: pnpm run dev
+      - uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          filename: '${{ github.event.repository.name }}.zip'
+          exclusions: '/.git/* /.github/* /node_modules/*'
+      - run: ls -la ${{ github.workspace }}
+      - uses: notiz-dev/github-action-json-property@release
+        id: version
+        with:
+          path: 'package.json'
+          prop_path: 'version'
+      - uses: ncipollo/release-action@v1.21.0
+        with:
+          artifacts: '${{ github.event.repository.name }}.zip'
+          commit: main
+          name: '${{steps.version.outputs.prop}} dev build'
+          prerelease: true
+          tag: 'dev-${{ github.sha }}'
+          token: ${{ secrets.GITHUB_TOKEN }}
