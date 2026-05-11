@@ -386,14 +386,34 @@ function getEasyGridComponent(popup: any) {
 
         const [steamGridDBId, setSteamGridDBId] = useState<number>(-1);
         const [thumbnailList, setThumbnailList] = useState([]);
+        const [sgdbIdInput, setSteamGridDBIdInput] = useState<string>("");
 
         const GetCurrentSettings = async () => {
-            setSteamGridDBId(await getSteamGridDBId(props.appid));
+            const id = await getSteamGridDBId(props.appid);
+            setSteamGridDBId(id);
+            setSteamGridDBIdInput(id !== undefined ? id.toString() : "");
             setThumbnailList(await getSearchData(props.appid, props.imagetype));
         };
 
         const PurgeImageCache = async () => {
             console.log("[steam-easygrid 4] Purging cache and reloading...");
+            searchCache[props.appid.toString()] = {};
+            GetCurrentSettings();
+        };
+
+        const SetSteamGridDBIdOverride = async () => {
+            const newId = Number(sgdbIdInput);
+            if (!isNaN(newId) && newId > 0) {
+                gameIDOverrides[props.appid.toString()] = newId;
+                localStorage.setItem("luthor112.steam-easygrid.overrides", JSON.stringify(gameIDOverrides));
+                searchCache[props.appid.toString()] = {};
+                GetCurrentSettings();
+            }
+        };
+
+        const ClearSteamGridDBIdOverride = async () => {
+            delete gameIDOverrides[props.appid.toString()];
+            localStorage.setItem("luthor112.steam-easygrid.overrides", JSON.stringify(gameIDOverrides));
             searchCache[props.appid.toString()] = {};
             GetCurrentSettings();
         };
@@ -427,7 +447,10 @@ function getEasyGridComponent(popup: any) {
                 App ID: {props.appid} / SGDB ID: {steamGridDBId} / Image Type: {props.imagetype} (found {thumbnailList.length}) <br/>
                 <DialogButton style={{width: "120px", display: "inline-block"}} onClick={SetOriginalImage}>Reset</DialogButton> &nbsp;
                 <DialogButton style={{width: "120px", display: "inline-block"}} onClick={PurgeImageCache}>Purge Cache</DialogButton> &nbsp;
-                <DialogButton style={{width: "120px", display: "inline-block"}} onClick={OpenWebpage}>Open Webpage</DialogButton><br/>
+                <DialogButton style={{width: "120px", display: "inline-block"}} onClick={OpenWebpage}>Open Webpage</DialogButton>
+                <div style={{maxWidth: "150px", display: "inline-block", marginRight: "35px", marginLeft: "10px"}}><TextField value={sgdbIdInput} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSteamGridDBIdInput(e.currentTarget.value)} mustBeNumeric={true} /></div>
+                <DialogButton style={{width: "120px", display: "inline-block"}} onClick={SetSteamGridDBIdOverride}>Set SGDB ID</DialogButton> &nbsp;
+                <DialogButton style={{width: "120px", display: "inline-block"}} onClick={ClearSteamGridDBIdOverride}>Clear SGDB ID</DialogButton><br/>
                 <div style={containerStyle}>
                     {thumbnailList.map((thumbData, index) => {
                         if (thumbData["type"] === "static")
