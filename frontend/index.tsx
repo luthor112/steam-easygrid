@@ -98,7 +98,13 @@ async function callAPI(endpoint) {
         console.log("[steam-easygrid 4] Unsuccessful HTTP request");
         return undefined;
     }
-    const apiAnswer = JSON.parse(apiAnswerStr);
+    let apiAnswer;
+    try {
+        apiAnswer = JSON.parse(apiAnswerStr);
+    } catch (e) {
+        console.error("[steam-easygrid 4] Failed to parse API response:", e);
+        return undefined;
+    }
     if ("http_status" in apiAnswer) {
         console.log("[steam-easygrid 4] Unsuccessful API call - HTTP", apiAnswer["http_status"]);
         return undefined;
@@ -127,6 +133,7 @@ async function getSteamGridDBId(appId: number): Promise<number | undefined> {
             return gamesResponse["data"]["id"];
         } else if (pluginConfig.display_name_fallback) {
             const currentApp = appStore.allApps.find((x) => x.appid === appId);
+            if (!currentApp) return undefined;
             const searchResponse = await callAPI(`search/autocomplete/${encodeURIComponent(currentApp.display_name)}`);
             if (searchResponse) {
                 if (searchResponse["data"].length > 0) {
@@ -242,6 +249,46 @@ async function getSearchData(appId, imgType) {
     return searchData;
 }
 
+function getImageExtFromUrl(imgURL: string): string {
+    return imgURL.endsWith(".jpg") || imgURL.endsWith(".jpeg") || imgURL.endsWith(".jfif") ? 'jpg' : 'png';
+}
+
+async function applyFirstWorkingImage(appId: number, imgType: number): Promise<boolean> {
+    const gameId = await getSteamGridDBId(appId);
+    if (!gameId) return false;
+
+    const imgTypeName = imgTypeDict[imgType];
+    const imgSearchTypeName = imgType === 3 ? "grids" : imgTypeName;
+    const usedConfig = pluginConfig[`${imgTypeName}_config`];
+
+    let mimeList = usedConfig.mimes;
+    if (pluginConfig.disable_webp) {
+        mimeList = mimeList.replace("image/webp,", "").replace(",image/webp", "");
+    }
+    const dimStr = "dimensions" in usedConfig ? `&dimensions=${usedConfig.dimensions}` : "";
+    const baseQ = `nsfw=${usedConfig.nsfw}&humor=${usedConfig.humor}&epilepsy=${usedConfig.epilepsy}&mimes=${mimeList}&styles=${usedConfig.styles}${dimStr}`;
+
+    const tryTypes = async (types: string): Promise<boolean> => {
+        for (let page = 0; ; page++) {
+            const result = await callAPI(`${imgSearchTypeName}/game/${gameId}?${baseQ}&types=${types}&page=${page}`);
+            if (!result?.data?.length) return false;
+            for (const item of result.data) {
+                const imageData = await get_encoded_image({ img_url: item.url });
+                if (imageData) {
+                    SteamClient.Apps.SetCustomArtworkForApp(appId, imageData, getImageExtFromUrl(item.url), imgType);
+                    return true;
+                }
+            }
+            if (result.data.length < 50) return false;
+        }
+    };
+
+    if (pluginConfig.prioritize_animated) {
+        return await tryTypes("animated") || await tryTypes("static");
+    }
+    return await tryTypes(usedConfig.types);
+}
+
 async function getImageData(appId, imgType, imgNum) {
     const searchResults = await getSearchData(appId, imgType);
     if (searchResults && searchResults.length > imgNum) {
@@ -283,12 +330,10 @@ async function renderHome(popup: any) {
                     const excludedAppIDs = getExcludedAppIDs();
                     for (let j = 0; j < currentColl.allApps.length; j++) {
                         gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                        if (currentColl.allApps[j].appid in excludedAppIDs) continue;
-                        const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
-                        if (newImage) {
-                            const imageExt = await getImageExt(currentColl.allApps[j].appid, 0, 0);
-                            SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, imageExt, 0);
-                        }
+                        const appid = currentColl.allApps[j].appid;
+                        if (appid in excludedAppIDs) continue;
+                        await applyFirstWorkingImage(appid, 0);
+                        delete searchCache[appid.toString()];
                     }
                     gridButton.firstChild.innerHTML = "Done!";
                     console.log("[steam-easygrid 4] Grids replaced for", collId);
@@ -332,12 +377,10 @@ async function renderCollection(popup: any) {
                         const excludedAppIDs = getExcludedAppIDs();
                         for (let j = 0; j < currentColl.allApps.length; j++) {
                             gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                            if (currentColl.allApps[j].appid in excludedAppIDs) continue;
-                            const newImage = await getImageData(currentColl.allApps[j].appid, 0, 0);
-                            if (newImage) {
-                                const imageExt = await getImageExt(currentColl.allApps[j].appid, 0, 0);
-                                SteamClient.Apps.SetCustomArtworkForApp(currentColl.allApps[j].appid, newImage, imageExt, 0);
-                            }
+                            const appid = currentColl.allApps[j].appid;
+                            if (appid in excludedAppIDs) continue;
+                            await applyFirstWorkingImage(appid, 0);
+                            delete searchCache[appid.toString()];
                         }
                         gridButton.firstChild.innerHTML = "Done!";
                         console.log("[steam-easygrid 4] Grids replaced for", uiStore.currentGameListSelection.strCollectionId);
@@ -521,20 +564,11 @@ async function renderApp(popup: any) {
                 showContextMenu(
                     <Menu label="SGDB Options">
                         <MenuItem onClick={async () => {
-                            const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                            const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
-
-                            let allImageTypes = 4;
-                            if (pluginConfig.icons_enabled) {
-                                allImageTypes = 5;
-                            }
+                            const allImageTypes = pluginConfig.icons_enabled ? 5 : 4;
+                            const appId = uiStore.currentGameListSelection.nAppId;
                             for (let j = 0; j < allImageTypes; j++) {
                                 gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
-                                const newImage = await getImageData(uiStore.currentGameListSelection.nAppId, j, 0);
-                                if (newImage) {
-                                    const imageExt = await getImageExt(uiStore.currentGameListSelection.nAppId, j, 0);
-                                    SteamClient.Apps.SetCustomArtworkForApp(uiStore.currentGameListSelection.nAppId, newImage, imageExt, j);
-                                }
+                                await applyFirstWorkingImage(appId, j);
                             }
                             gridButton.firstChild.innerHTML = "SG";
                             console.log("[steam-easygrid 4] Images replaced for", uiStore.currentGameListSelection.nAppId);
