@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 // Backend functions
 const call_api_backend = callable<[{ a_bearer: string, b_endpoint: string }], string>('call_api_backend');
 const get_encoded_image = callable<[{ img_url: string }], string>('get_encoded_image');
+const log_frontend = callable<[{ msg: string }], void>('log_frontend');
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -221,10 +222,15 @@ async function getSearchData(appId, imgType) {
 }
 
 async function getImageData(appId, imgType, imgNum) {
+    await log_frontend({ msg: `getImageData appid=${appId} type=${imgType} index=${imgNum}` });
     const searchResults = await getSearchData(appId, imgType);
+    await log_frontend({ msg: `image list length=${searchResults ? searchResults.length : null}` });
     if (searchResults && searchResults.length > imgNum) {
         const imgURL = searchResults[imgNum].url;
-        return await get_encoded_image({ img_url: imgURL });
+        await log_frontend({ msg: `requesting via backend url=${imgURL}` });
+        const b64 = await get_encoded_image({ img_url: imgURL });
+        await log_frontend({ msg: `base64 length=${b64 ? b64.length : 'null'}` });
+        return b64 || undefined;
     }
     return undefined;
 }
