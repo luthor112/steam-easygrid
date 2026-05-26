@@ -424,13 +424,26 @@ function getEasyGridComponent(popup: any) {
             width: (popup.m_popup.window.screen.width * props.imageWidthMult) + 'px',
             minWidth: "150px",
             height: "auto",
+            position: 'relative',
+            display: 'inline-block'
         };
 
         const imageStyle: React.CSSProperties = {
             width: '100%', // adjust as needed
             height: 'auto',
             objectFit: 'cover',
-            borderRadius: '8px'
+            borderRadius: '8px',
+            display: 'block'
+        };
+
+        const statusStyle: React.CSSProperties = {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'darkgray',
+            fontSize: '24px',
+            fontWeight: 'bold'
         };
 
         const [steamGridDBId, setSteamGridDBId] = useState<number>(-1);
@@ -470,10 +483,19 @@ function getEasyGridComponent(popup: any) {
         const SetNewImage = async (e) => {
             const targetNum = Number(e.target.dataset.imageindex);
             console.log("[steam-easygrid 4] Setting image to:", targetNum);
+            e.target.nextElementSibling.innerText = "DOWNLOADING";
+            e.target.nextElementSibling.style.color = 'darkgray';
+            
             const newImage = await getImageData(props.appid, props.imagetype, targetNum);
             if (newImage) {
                 const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
                 SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt, props.imagetype);
+
+                e.target.nextElementSibling.innerText = "DONE";
+                e.target.nextElementSibling.style.color = 'darkgreen';
+            } else {
+                e.target.nextElementSibling.innerText = "FAILED";
+                e.target.nextElementSibling.style.color = 'darkred';
             }
         };
 
@@ -506,12 +528,14 @@ function getEasyGridComponent(popup: any) {
                             return (
                                 <div style={imageWrapperStyle}>
                                     <img key={index} data-imageindex={index} src={thumbData["thumb"]} alt={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
+                                    <div key={`${index}-status`} style={statusStyle}></div>
                                 </div>
                             );
 
                         return (
                             <div style={imageWrapperStyle}>
                                 <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData["thumb"]} alt={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
+                                <div key={`${index}-status`} style={statusStyle}></div>
                             </div>
                         );
                     })}
