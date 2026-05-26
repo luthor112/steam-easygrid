@@ -88,6 +88,13 @@ local function get_encoded_image_windows(img_url)
         logger:error(string.format("Got HTTP %d", response.status))
         return ""
     end
+
+    local raw_size = #response.body
+    if raw_size > 10 * 1024 * 1024 then
+        logger:warn(string.format("Image %d bytes exceeds 10 MB limit, skipping", raw_size))
+        return ""
+    end
+
     return utils.base64_encode(response.body)
 end
 
