@@ -15,6 +15,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
     - Feature might or might not work
 - WEBP art has been disabled by default, as it caused crashes for some users
     - Can be enabled in the Configuration
+- A 10MB size limit has been applied to all images, to prevent crashes
 
 ## Configuration
 - Configuration options are available through the Millennium Library Manager
