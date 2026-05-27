@@ -14,7 +14,6 @@
         "noImplicitAny": true,
         "allowSyntheticDefaultImports": true,
         "skipLibCheck": true,
-        "resolveJsonModule": true,
-        "noCheck": true
+        "resolveJsonModule": true
     }
 }

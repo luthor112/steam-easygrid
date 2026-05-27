@@ -2,6 +2,13 @@ import { callable, findModule, sleep, Millennium, Menu, MenuItem, showContextMen
 import { createRoot } from "react-dom/client";
 import React, { useState, useEffect } from "react";
 
+declare global {
+    var MainWindowBrowserManager: any;
+    var appStore: any;
+    var collectionStore: any;
+    var uiStore: any;
+}
+
 // Backend functions
 const call_api_backend = callable<[{ a_bearer: string, b_endpoint: string }], string>('call_api_backend');
 const get_encoded_image = callable<[{ img_url: string }], string>('get_encoded_image');
@@ -10,15 +17,48 @@ const log_frontend = callable<[{ msg: string }], void>('log_frontend');
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
 
-const WaitForElementTimeout = async (sel: string, parent = document, timeOut = 1000) =>
-	[...(await Millennium.findElement(parent, sel, timeOut))][0];
+/*const WaitForElementTimeout = async (sel: string, parent = document, timeOut = 1000) =>
+	[...(await Millennium.findElement(parent, sel, timeOut))][0];*/
 
-const WaitForElementList = async (sel: string, parent = document) =>
-	[...(await Millennium.findElement(parent, sel))];
+/*const WaitForElementList = async (sel: string, parent = document) =>
+	[...(await Millennium.findElement(parent, sel))];*/
 
 const imgTypeDict = ["grids", "heroes", "logos", "wide_grids", "icons"];
 
-var pluginConfig = {
+type ImageTypeSubConfig = {
+    nsfw: string,
+    humor: string,
+    epilepsy: string,
+    types: string,
+    mimes: string,
+    styles: string,
+    dimensions?: string
+};
+
+type PluginConfig = {
+    api_key: string,
+    display_name_fallback: boolean,
+    replace_custom_images: boolean,
+    appids_excluded_from_replacement: string,
+    prioritize_animated: boolean,
+    prioritize_authors: string[],
+    expand_headers: string,
+    app_page_button: boolean,
+    disable_webp: boolean,
+    reapply_app_page: boolean,
+    grids_config: ImageTypeSubConfig,
+    wide_grids_config: ImageTypeSubConfig,
+    heroes_config: ImageTypeSubConfig,
+    logos_config: ImageTypeSubConfig,
+    icons_config: ImageTypeSubConfig,
+    icons_enabled: boolean,
+    grids_width_mult: number,
+    heroes_width_mult: number,
+    logos_width_mult: number,
+    icons_width_mult: number
+};
+
+var pluginConfig: PluginConfig = {
     api_key: "",
     display_name_fallback: true,
     replace_custom_images: true,
@@ -78,9 +118,13 @@ var pluginConfig = {
     icons_width_mult: 7
 };
 
-var gameIDOverrides = {};
+type GameIDOverrides = Record<string, number>;
 
-var searchCache = {};
+var gameIDOverrides: GameIDOverrides = {};
+
+type SearchCache = Record<string, Record<string, any>>;
+
+var searchCache: SearchCache = {};
 
 function getExcludedAppIDs() {
     let excludeAppsList = [];
@@ -93,7 +137,7 @@ function getExcludedAppIDs() {
     return excludeAppsList;
 }
 
-async function callAPI(endpoint) {
+async function callAPI(endpoint: string) {
     const apiAnswerStr = await call_api_backend({ a_bearer: pluginConfig.api_key, b_endpoint: endpoint });
     if (apiAnswerStr === "") {
         console.log("[steam-easygrid 4] Unsuccessful HTTP request");
@@ -133,7 +177,7 @@ async function getSteamGridDBId(appId: number): Promise<number | undefined> {
             localStorage.setItem("luthor112.steam-easygrid.overrides", JSON.stringify(gameIDOverrides));
             return gamesResponse["data"]["id"];
         } else if (pluginConfig.display_name_fallback) {
-            const currentApp = appStore.allApps.find((x) => x.appid === appId);
+            const currentApp = appStore.allApps.find((x: any) => x.appid === appId);
             if (!currentApp) return undefined;
             const searchResponse = await callAPI(`search/autocomplete/${encodeURIComponent(currentApp.display_name)}`);
             if (searchResponse) {
@@ -151,13 +195,13 @@ async function getSteamGridDBId(appId: number): Promise<number | undefined> {
     }
 }
 
-async function searchAllPages(appId, imgType, typesOverride) {
+async function searchAllPages(appId: number, imgType: number, typesOverride: string | undefined) {
     const gameId = await getSteamGridDBId(appId);
     if (gameId) {
         const imgTypeName = imgTypeDict[imgType];
         const imgSearchTypeName = imgType === 3 ? "grids" : imgTypeName;
-        const usedConfig = pluginConfig[`${imgTypeName}_config`];
-        let fullResult = [];
+        const usedConfig = (pluginConfig[`${imgTypeName}_config` as keyof PluginConfig] as ImageTypeSubConfig);
+        let fullResult: any[] = [];
 
         let mimeList = usedConfig.mimes;
         if (pluginConfig.disable_webp) {
@@ -207,7 +251,7 @@ function orderSearchDataByAuthors(searchData: any[]): any[] {
     return searchData;
 }
 
-async function getSearchData(appId, imgType) {
+async function getSearchData(appId: number, imgType: number) {
     if (!(appId.toString() in searchCache)) {
         searchCache[appId.toString()] = {};
     }
@@ -216,7 +260,7 @@ async function getSearchData(appId, imgType) {
         return searchCache[appId.toString()][imgTypeDict[imgType]];
     }
 
-    let searchData = [];
+    let searchData: any[] = [];
     if (pluginConfig.prioritize_animated) {
         let searchDataAnimated = await searchAllPages(appId, imgType, "animated");
         for (let i = 0; i < searchDataAnimated.length; i++) {
@@ -250,7 +294,7 @@ async function getSearchData(appId, imgType) {
     return searchData;
 }
 
-function getImageExtFromUrl(imgURL: string): string {
+function getImageExtFromUrl(imgURL: string): 'jpg' | 'png' {
     return imgURL.endsWith(".jpg") || imgURL.endsWith(".jpeg") || imgURL.endsWith(".jfif") ? 'jpg' : 'png';
 }
 
@@ -260,7 +304,7 @@ async function applyFirstWorkingImage(appId: number, imgType: number): Promise<b
 
     const imgTypeName = imgTypeDict[imgType];
     const imgSearchTypeName = imgType === 3 ? "grids" : imgTypeName;
-    const usedConfig = pluginConfig[`${imgTypeName}_config`];
+    const usedConfig = pluginConfig[`${imgTypeName}_config` as keyof PluginConfig] as ImageTypeSubConfig;
 
     let mimeList = usedConfig.mimes;
     if (pluginConfig.disable_webp) {
@@ -290,7 +334,7 @@ async function applyFirstWorkingImage(appId: number, imgType: number): Promise<b
     return await tryTypes(usedConfig.types);
 }
 
-async function getImageData(appId, imgType, imgNum) {
+async function getImageData(appId: number, imgType: number, imgNum: number) {
     await log_frontend({ msg: `getImageData appid=${appId} type=${imgType} index=${imgNum}` });
     const searchResults = await getSearchData(appId, imgType);
     await log_frontend({ msg: `image list length=${searchResults ? searchResults.length : null}` });
@@ -304,7 +348,7 @@ async function getImageData(appId, imgType, imgNum) {
     return undefined;
 }
 
-async function getImageExt(appId, imgType, imgNum) {
+async function getImageExt(appId: number, imgType: number, imgNum: number) {
     const searchResults = await getSearchData(appId, imgType);
     if (searchResults && searchResults.length > imgNum) {
         const imgURL = searchResults[imgNum].url;
@@ -324,7 +368,7 @@ async function renderHome(popup: any) {
         const gridButton = popup.m_popup.document.createElement("div");
         const gridButtonRoot = createRoot(gridButton);
         gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
-        headerDiv.insertBefore(gridButton, headerDiv.firstChild.nextSibling.nextSibling);
+        headerDiv.insertBefore(gridButton, headerDiv.firstChild!.nextSibling!.nextSibling);
 
         gridButton.addEventListener("click", async () => {
             const extraMenuItems = [];
@@ -373,7 +417,7 @@ async function renderCollection(popup: any) {
         const gridButton = popup.m_popup.document.createElement("div");
         const gridButtonRoot = createRoot(gridButton);
         gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
-        collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild.nextSibling);
+        collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild!.nextSibling);
 
         gridButton.addEventListener("click", async () => {
             showContextMenu(
@@ -408,8 +452,15 @@ async function renderCollection(popup: any) {
     }
 }
 
+type GetEasyGridComponentProps = {
+    appid: number;
+    appname: string;
+    imagetype: number;
+    imageWidthMult: number;
+};
+
 function getEasyGridComponent(popup: any) {
-    return (props) => {
+    return (props: GetEasyGridComponentProps) => {
         const containerStyle: React.CSSProperties = {
             display: 'flex',
             flexWrap: 'wrap',
@@ -452,7 +503,7 @@ function getEasyGridComponent(popup: any) {
 
         const GetCurrentSettings = async () => {
             const id = await getSteamGridDBId(props.appid);
-            setSteamGridDBId(id);
+            setSteamGridDBId(id !== undefined ? id : -1);
             setSteamGridDBIdInput(id !== undefined ? id.toString() : "");
             setThumbnailList(await getSearchData(props.appid, props.imagetype));
         };
@@ -480,26 +531,26 @@ function getEasyGridComponent(popup: any) {
             GetCurrentSettings();
         };
 
-        const SetNewImage = async (e) => {
-            const targetNum = Number(e.target.dataset.imageindex);
+        const SetNewImage = async (e: React.MouseEvent<HTMLElement>) => {
+            const targetNum = Number((e.target as HTMLElement).dataset.imageindex);
             console.log("[steam-easygrid 4] Setting image to:", targetNum);
-            e.target.nextElementSibling.innerText = "DOWNLOADING";
-            e.target.nextElementSibling.style.color = 'darkgray';
+            ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "DOWNLOADING";
+            ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkgray';
             
             const newImage = await getImageData(props.appid, props.imagetype, targetNum);
             if (newImage) {
                 const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
-                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt, props.imagetype);
+                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt!, props.imagetype);
 
-                e.target.nextElementSibling.innerText = "DONE";
-                e.target.nextElementSibling.style.color = 'darkgreen';
+                ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "DONE";
+                ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkgreen';
             } else {
-                e.target.nextElementSibling.innerText = "FAILED";
-                e.target.nextElementSibling.style.color = 'darkred';
+                ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "FAILED";
+                ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkred';
             }
         };
 
-        const SetOriginalImage = async (e) => {
+        const SetOriginalImage = async () => {
             console.log("[steam-easygrid 4] Resetting image...");
             SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
         };
@@ -534,7 +585,7 @@ function getEasyGridComponent(popup: any) {
 
                         return (
                             <div style={imageWrapperStyle}>
-                                <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData["thumb"]} alt={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
+                                <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData["thumb"]} title={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
                                 <div key={`${index}-status`} style={statusStyle}></div>
                             </div>
                         );
@@ -546,10 +597,10 @@ function getEasyGridComponent(popup: any) {
 }
 
 async function openSGDBWindow(popup: any) {
-    const EasyGridComponent: React.FC = getEasyGridComponent(popup);
+    const EasyGridComponent = getEasyGridComponent(popup);
 
     const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-    const currentApp = currentColl.allApps.find((x) => x.appid === uiStore.currentGameListSelection.nAppId);
+    const currentApp = currentColl.allApps.find((x: any) => x.appid === uiStore.currentGameListSelection.nAppId);
     const heroWidthMult = pluginConfig.heroes_width_mult / 100;
     const logoWidthMult = pluginConfig.logos_width_mult / 100;
     const gridWidthMult = pluginConfig.grids_width_mult / 100;
@@ -583,12 +634,12 @@ async function renderApp(popup: any) {
     const appPageButtonEnabled = pluginConfig.app_page_button;
     if (appPageButtonEnabled) {
         const gameSettingsButton = await WaitForElement(`div.${findModule(e => e.InPage).InPage} div.${findModule(e => e.AppButtonsContainer).AppButtonsContainer} > div.${findModule(e => e.MenuButtonContainer).MenuButtonContainer}:not([role="button"])`, popup.m_popup.document);
-        const oldGridButton = gameSettingsButton.parentNode.querySelector('div.easygrid-button');
+        const oldGridButton = gameSettingsButton.parentNode!.querySelector('div.easygrid-button');
         if (!oldGridButton) {
-            const gridButton = gameSettingsButton.cloneNode(true);
+            const gridButton = gameSettingsButton.cloneNode(true) as HTMLElement;
             gridButton.classList.add("easygrid-button");
-            gridButton.firstChild.innerHTML = "SG";
-            gameSettingsButton.parentNode.insertBefore(gridButton, gameSettingsButton.nextSibling);
+            (gridButton.firstChild as HTMLElement)!.innerHTML = "SG";
+            gameSettingsButton.parentNode!.insertBefore(gridButton, gameSettingsButton.nextSibling);
 
             gridButton.addEventListener("click", async () => {
                 showContextMenu(
@@ -597,10 +648,10 @@ async function renderApp(popup: any) {
                             const allImageTypes = pluginConfig.icons_enabled ? 5 : 4;
                             const appId = uiStore.currentGameListSelection.nAppId;
                             for (let j = 0; j < allImageTypes; j++) {
-                                gridButton.firstChild.innerHTML = `${j}/${allImageTypes}`;
+                                (gridButton.firstChild as HTMLElement)!.innerHTML = `${j}/${allImageTypes}`;
                                 await applyFirstWorkingImage(appId, j);
                             }
-                            gridButton.firstChild.innerHTML = "SG";
+                            (gridButton.firstChild as HTMLElement)!.innerHTML = "SG";
                             console.log("[steam-easygrid 4] Images replaced for", uiStore.currentGameListSelection.nAppId);
                         }}> Auto replace images </MenuItem>
                         <MenuItem onClick={async () => {
@@ -620,7 +671,7 @@ async function renderApp(popup: any) {
             el.style.setProperty("height", "auto", "important");
         }
 
-        topCapsuleDiv.style.setProperty("max-height", expandHeadersValue, "important");
+        (topCapsuleDiv as HTMLElement).style.setProperty("max-height", expandHeadersValue, "important");
 
         for (const el of popup.m_popup.document.querySelectorAll(`.${findModule(e => e.BoxSizer).BoxSizer} img`)) {
             el.style.setProperty("width", "50%", "important");
@@ -639,10 +690,12 @@ async function renderAppAndObserve(popup: any) {
 
     if (pluginConfig.reapply_app_page) {
         const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
-        const topCapsuleObserver = new MutationObserver(async (mutationList, observer) => {
+        const topCapsuleObserver = new MutationObserver(async (mutationList: any, observer: any) => {
+            void mutationList;
+            void observer;
             await renderApp(popup);
         });
-        topCapsuleObserver.observe(topCapsuleDiv.parentNode, { subtree: true, childList: true, attributes: true });
+        topCapsuleObserver.observe(topCapsuleDiv.parentNode!, { subtree: true, childList: true, attributes: true });
     }
 }
 
@@ -660,7 +713,10 @@ async function OnPopupCreation(popup: any) {
         }
 
         console.log("[steam-easygrid 4] Registering callback");
-        MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL, previousURL) => {
+        MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL: any, previousURL: any) => {
+            void currentURL;
+            void previousURL;
+
             if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home") {
                 await renderHome(popup);
             } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/")) {
@@ -672,7 +728,30 @@ async function OnPopupCreation(popup: any) {
     }
 }
 
-const SingleSetting = (props) => {
+type BoolKeys = {
+    [K in keyof PluginConfig]: PluginConfig[K] extends boolean ? K : never
+  }[keyof PluginConfig];
+  
+type StringKeys = {
+    [K in keyof PluginConfig]: PluginConfig[K] extends string ? K : never
+}[keyof PluginConfig];
+
+type NumKeys = {
+    [K in keyof PluginConfig]: PluginConfig[K] extends number ? K : never
+}[keyof PluginConfig];
+
+type StringArrayKeys = {
+    [K in keyof PluginConfig]: PluginConfig[K] extends string[] ? K : never
+}[keyof PluginConfig];
+
+type SingleSettingProps =
+  | { type: "bool"; name: BoolKeys; label: string; description: string; readonly?: boolean }
+  | { type: "text"; name: StringKeys; label: string; description: string; readonly?: boolean }
+  | { type: "num"; name: NumKeys; label: string; description: string; readonly?: boolean }
+  | { type: "textchild"; name: keyof ImageTypeSubConfig; parentname: keyof PluginConfig; label: string; description: string; readonly?: boolean }
+  | { type: "array"; name: StringArrayKeys; label: string; description: string; readonly?: boolean };
+
+const SingleSetting = (props: SingleSettingProps) => {
     const [boolValue, setBoolValue] = useState(false);
     const [isDisabled, setIsDisabled] = useState(false);
 
@@ -712,7 +791,7 @@ const SingleSetting = (props) => {
     } else if (props.type === "textchild") {
         return (
             <Field label={props.label} description={props.description} bottomSeparator="standard" focusable>
-                <TextField disabled={isDisabled} defaultValue={pluginConfig[props.parentname][props.name]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.parentname][props.name] = e.currentTarget.value; saveConfig(); }} />
+                <TextField disabled={isDisabled} defaultValue={(pluginConfig[props.parentname] as ImageTypeSubConfig)[props.name]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { (pluginConfig[props.parentname] as ImageTypeSubConfig)[props.name] = e.currentTarget.value; saveConfig(); }} />
             </Field>
         );
     } else if (props.type === "array") {
@@ -721,10 +800,19 @@ const SingleSetting = (props) => {
                 <TextField disabled={isDisabled} defaultValue={pluginConfig[props.name].join(", ")} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = e.currentTarget.value.split(",").map(s => s.trim()).filter(s => s.length > 0); saveConfig(); }} />
             </Field>
         );
+    } else {
+        return (
+            <div>This should not happen...</div>
+        );
     }
 }
 
-const ImageSearchSetting = (props) => {
+type ImageSearchSettingProps = {
+    name: keyof PluginConfig
+    label: string;
+};
+
+const ImageSearchSetting = (props: ImageSearchSettingProps) => {
     return (
         <div>
             <SingleSetting name="nsfw" parentname={props.name} type="textchild" label={`${props.label} :: nsfw`} description="any | true | false" />
@@ -767,15 +855,17 @@ const SettingsContent = () => {
 export default definePlugin(async () => {
     console.log("[steam-easygrid 4] frontend startup");
 
-    const storedConfig = JSON.parse(localStorage.getItem("luthor112.steam-easygrid.config"));
+    const rawValue = localStorage.getItem("luthor112.steam-easygrid.config");
+    const storedConfig: Partial<PluginConfig> = rawValue ? JSON.parse(rawValue) : {};
     pluginConfig = { ...pluginConfig, ...storedConfig };
     console.log("[steam-easygrid 4] Merged config:", pluginConfig);
 
-    const storedOverrides = JSON.parse(localStorage.getItem("luthor112.steam-easygrid.overrides"));
+    const rawOverrideValue = localStorage.getItem("luthor112.steam-easygrid.overrides");
+    const storedOverrides: GameIDOverrides = rawOverrideValue ? JSON.parse(rawOverrideValue) : {};
     gameIDOverrides = { ...gameIDOverrides, ...storedOverrides };
     console.log("[steam-easygrid 4] Overrides:", gameIDOverrides);
 
-    Millennium.AddWindowCreateHook(OnPopupCreation);
+    Millennium.AddWindowCreateHook!(OnPopupCreation);
 
     return {
         title: "Easy SteamGrid",
