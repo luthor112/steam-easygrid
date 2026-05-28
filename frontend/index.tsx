@@ -657,7 +657,7 @@ async function renderApp(popup: any) {
                                 await applyFirstWorkingImage(appId, j);
                             }
                             (gridButton.firstChild as HTMLElement)!.innerHTML = "SG";
-                            console.log("[steam-easygrid 4] Images replaced for", uiStore.currentGameListSelection.nAppId);
+                            console.log("[steam-easygrid 4] Images replaced for", appId);
                         }}> Auto replace images </MenuItem>
                         <MenuItem onClick={async () => {
                             openSGDBWindow(popup);
