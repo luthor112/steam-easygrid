@@ -131,6 +131,41 @@ type SearchCache = Record<string, Record<string, any>>;
 
 var searchCache: SearchCache = {};
 
+type AppCustomizationState = {
+    grids: boolean;
+    heroes: boolean;
+    logos: boolean;
+    wide_grids: boolean;
+    icons: boolean;
+};
+
+type CustomizationStates = Record<string, AppCustomizationState>;
+
+var customizationStates: CustomizationStates = {};
+
+function SetCustomizationState(appID: number, imgType: number, newState: boolean) {
+    if (!(appID.toString() in customizationStates)) {
+        customizationStates[appID.toString()] = {
+            grids: false,
+            heroes: false,
+            logos: false,
+            wide_grids: false,
+            icons: false
+        };
+    }
+
+    customizationStates[appID.toString()][imgTypeDict[imgType] as keyof AppCustomizationState] = newState;
+    localStorage.setItem("luthor112.steam-easygrid.customization", JSON.stringify(customizationStates));
+}
+
+function GetCustomizationState(appID: number, imgType: number) {
+    if (appID.toString() in customizationStates) {
+        return customizationStates[appID.toString()][imgTypeDict[imgType] as keyof AppCustomizationState];
+    } else {
+        return false;
+    }
+}
+
 function getExcludedAppIDs() {
     let excludeAppsList = [];
     if (pluginConfig.appids_excluded_from_replacement !== "") {
@@ -326,6 +361,7 @@ async function applyFirstWorkingImage(appId: number, imgType: number): Promise<b
                 const imageData = await get_encoded_image({ img_url: item.url });
                 if (imageData) {
                     SteamClient.Apps.SetCustomArtworkForApp(appId, imageData, getImageExtFromUrl(item.url), imgType);
+                    SetCustomizationState(appId, imgType, true);
                     return true;
                 }
             }
@@ -387,6 +423,7 @@ async function renderHome(popup: any) {
                         gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                         const appid = currentColl.allApps[j].appid;
                         if (appid in excludedAppIDs) continue;
+                        if (!pluginConfig.replace_custom_images && GetCustomizationState(appid, 0)) continue;
                         await applyFirstWorkingImage(appid, 0);
                         delete searchCache[appid.toString()];
                     }
@@ -398,6 +435,7 @@ async function renderHome(popup: any) {
                     for (let j = 0; j < currentColl.allApps.length; j++) {
                         gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                         SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
+                        SetCustomizationState(currentColl.allApps[j].appid, 0, false);
                     }
                     gridButton.firstChild.innerHTML = "Done!";
                     console.log("[steam-easygrid 4] Grids cleared for", collId);
@@ -434,6 +472,7 @@ async function renderCollection(popup: any) {
                             gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                             const appid = currentColl.allApps[j].appid;
                             if (appid in excludedAppIDs) continue;
+                            if (!pluginConfig.replace_custom_images && GetCustomizationState(appid, 0)) continue;
                             await applyFirstWorkingImage(appid, 0);
                             delete searchCache[appid.toString()];
                         }
@@ -445,6 +484,7 @@ async function renderCollection(popup: any) {
                         for (let j = 0; j < currentColl.allApps.length; j++) {
                             gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
                             SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
+                            SetCustomizationState(currentColl.allApps[j].appid, 0, false);
                         }
                         gridButton.firstChild.innerHTML = "Done!";
                         console.log("[steam-easygrid 4] Grids cleared for", uiStore.currentGameListSelection.strCollectionId);
@@ -546,6 +586,7 @@ function getEasyGridComponent(popup: any) {
             if (newImage) {
                 const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
                 SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt!, props.imagetype);
+                SetCustomizationState(props.appid, props.imagetype, true);
 
                 ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "DONE";
                 ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkgreen';
@@ -558,6 +599,7 @@ function getEasyGridComponent(popup: any) {
         const SetOriginalImage = async () => {
             console.log("[steam-easygrid 4] Resetting image...");
             SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
+            SetCustomizationState(props.appid, props.imagetype, false);
         };
 
         const OpenWebpage = async () => {
@@ -836,7 +878,7 @@ const SettingsContent = () => {
         <div>
             <SingleSetting name="api_key" type="text" label="API key" description="Your SteamGridDB API key" />
             <SingleSetting name="display_name_fallback" type="bool" label="Search by name fallback" description="Fallback to searching by name if needed" />
-            <SingleSetting name="replace_custom_images" type="bool" readonly={true} label="Always replace cusmtom Images" description="When replacing all grid images, replace custom set ones as well" />
+            <SingleSetting name="replace_custom_images" type="bool" label="Always replace cusmtom Images" description="When replacing all grid images, replace custom set ones as well" />
             <SingleSetting name="appids_excluded_from_replacement" type="text" label="Exclude APPIDs from replacement" description="When replacing all grid images, skip these apps (separate by semicolon)" />
             <SingleSetting name="prioritize_animated" type="bool" label="Prioritize animated images" description="Prioritize animated images" />
             <SingleSetting name="prioritize_authors" type="array" label="Prioritize Authors" description="Prioritize images by author (comma-separated, in order)" />
@@ -871,6 +913,11 @@ export default definePlugin(async () => {
     const storedOverrides: GameIDOverrides = rawOverrideValue ? JSON.parse(rawOverrideValue) : {};
     gameIDOverrides = { ...gameIDOverrides, ...storedOverrides };
     console.log("[steam-easygrid 4] Overrides:", gameIDOverrides);
+
+    const rawCustomizationValue = localStorage.getItem("luthor112.steam-easygrid.customization");
+    const storedCustomizationStates: CustomizationStates = rawCustomizationValue ? JSON.parse(rawCustomizationValue) : {};
+    customizationStates = { ...customizationStates, ...storedCustomizationStates };
+    console.log("[steam-easygrid 4] Customization states:", customizationStates);
 
     Millennium.AddWindowCreateHook!(OnPopupCreation);
 
