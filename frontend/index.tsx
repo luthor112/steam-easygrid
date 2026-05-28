@@ -95,7 +95,8 @@ var pluginConfig: PluginConfig = {
         epilepsy: "any",
         types: "static,animated",
         mimes: "image/webp,image/png,image/jpeg",
-        styles: "alternate,blurred,material"
+        styles: "alternate,blurred,material",
+        dimensions: ""
     },
     logos_config: {
         nsfw: "false",
@@ -103,7 +104,8 @@ var pluginConfig: PluginConfig = {
         epilepsy: "any",
         types: "static,animated",
         mimes: "image/webp,image/png",
-        styles: "official,white,black,custom"
+        styles: "official,white,black,custom",
+        dimensions: ""
     },
     icons_config: {
         nsfw: "false",
@@ -111,7 +113,8 @@ var pluginConfig: PluginConfig = {
         epilepsy: "any",
         types: "static,animated",
         mimes: "image/png,image/vnd.microsoft.icon",
-        styles: "official,custom"
+        styles: "official,custom",
+        dimensions: ""
     },
     icons_enabled: false,
     grids_width_mult: 5,
@@ -215,7 +218,7 @@ async function searchAllPages(appId: number, imgType: number, typesOverride: str
         } else {
             qString += `&types=${usedConfig.types}`;
         }
-        if ("dimensions" in usedConfig) {
+        if ("dimensions" in usedConfig && usedConfig["dimensions"]) {
             qString += `&dimensions=${usedConfig.dimensions}`;
         }
 
@@ -312,7 +315,7 @@ async function applyFirstWorkingImage(appId: number, imgType: number): Promise<b
     if (pluginConfig.disable_webp) {
         mimeList = mimeList.replace("image/webp,", "").replace(",image/webp", "");
     }
-    const dimStr = "dimensions" in usedConfig ? `&dimensions=${usedConfig.dimensions}` : "";
+    const dimStr = ("dimensions" in usedConfig && usedConfig["dimensions"]) ? `&dimensions=${usedConfig.dimensions}` : "";
     const baseQ = `nsfw=${usedConfig.nsfw}&humor=${usedConfig.humor}&epilepsy=${usedConfig.epilepsy}&mimes=${mimeList}&styles=${usedConfig.styles}${dimStr}`;
 
     const tryTypes = async (types: string): Promise<boolean> => {
@@ -823,6 +826,7 @@ const ImageSearchSetting = (props: ImageSearchSettingProps) => {
             <SingleSetting name="types" parentname={props.name} type="textchild" label={`${props.label} :: types`} description="Comma separated" />
             <SingleSetting name="mimes" parentname={props.name} type="textchild" label={`${props.label} :: mimes`} description="Comma separated" />
             <SingleSetting name="styles" parentname={props.name} type="textchild" label={`${props.label} :: styles`} description="Comma separated" />
+            <SingleSetting name="dimensions" parentname={props.name} type="textchild" label={`${props.label} :: dimensions`} description="Comma separated" />
         </div>
     );
 }
