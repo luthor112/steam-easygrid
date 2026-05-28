@@ -44,6 +44,7 @@ type PluginConfig = {
     prioritize_authors: string[],
     expand_headers: string,
     app_page_button: boolean,
+    collection_button: boolean,
     disable_webp: boolean,
     reapply_app_page: boolean,
     grids_config: ImageTypeSubConfig,
@@ -67,6 +68,7 @@ var pluginConfig: PluginConfig = {
     prioritize_authors: [],
     expand_headers: "",
     app_page_button: true,
+    collection_button: true,
     disable_webp: true,
     reapply_app_page: true,
     grids_config: {
@@ -364,7 +366,7 @@ async function getImageExt(appId: number, imgType: number, imgNum: number) {
 async function renderHome(popup: any) {
     const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
     const oldGridButton = headerDiv.querySelector('button.easygrid-button');
-    if (!oldGridButton) {
+    if (!oldGridButton && pluginConfig.collection_button) {
         const gridButton = popup.m_popup.document.createElement("div");
         const gridButtonRoot = createRoot(gridButton);
         gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
@@ -413,7 +415,7 @@ async function renderHome(popup: any) {
 async function renderCollection(popup: any) {
     const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
     const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
-    if (!oldGridButton) {
+    if (!oldGridButton && pluginConfig.collection_button) {
         const gridButton = popup.m_popup.document.createElement("div");
         const gridButtonRoot = createRoot(gridButton);
         gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
@@ -836,6 +838,7 @@ const SettingsContent = () => {
             <SingleSetting name="prioritize_authors" type="array" label="Prioritize Authors" description="Prioritize images by author (comma-separated, in order)" />
             <SingleSetting name="expand_headers" type="text" label="Expand app header size" description="Set custom header height" />
             <SingleSetting name="app_page_button" type="bool" label="Show SG button" description="Show SG button on application pages" />
+            <SingleSetting name="collection_button" type="bool" label="Show SGDB button" description="Show SGDB button for Collections" />
             <SingleSetting name="disable_webp" type="bool" label="Disable WEBP support" description="Avoids crashes for some users" />
             <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" />
             <ImageSearchSetting name="grids_config" label="Grids" />
