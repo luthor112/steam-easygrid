@@ -1,4 +1,4 @@
-import { callable, findModule, sleep, Millennium, Menu, MenuItem, showContextMenu, DialogButton, showModal, SidebarNavigation, IconsModule, definePlugin, Field, TextField, Toggle } from "@steambrew/client";
+import { callable, findModule, sleep, Millennium, Menu, MenuItem, showContextMenu, DialogButton, showModal, SidebarNavigation, IconsModule, definePlugin, Field, TextField, Toggle, Dropdown } from "@steambrew/client";
 import { createRoot } from "react-dom/client";
 import React, { useState, useEffect } from "react";
 
@@ -455,45 +455,73 @@ async function renderHome(popup: any) {
 
 async function renderCollection(popup: any) {
     const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
-    const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
-    if (!oldGridButton && pluginConfig.collection_button) {
-        const gridButton = popup.m_popup.document.createElement("div");
-        const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
-        collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild!.nextSibling);
+    const oldGridDropdown = collOptionsDiv.querySelector('div.easygrid-dropdown');
 
-        gridButton.addEventListener("click", async () => {
-            showContextMenu(
-                <Menu label="EasyGrid Options">
-                    <MenuItem onClick={async () => {
-                        const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                        const excludedAppIDs = getExcludedAppIDs();
-                        for (let j = 0; j < currentColl.allApps.length; j++) {
-                            gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                            const appid = currentColl.allApps[j].appid;
-                            if (appid in excludedAppIDs) continue;
-                            if (!pluginConfig.replace_custom_images && GetCustomizationState(appid, 0)) continue;
-                            await applyFirstWorkingImage(appid, 0);
-                            delete searchCache[appid.toString()];
-                        }
-                        gridButton.firstChild.innerHTML = "Done!";
-                        console.log("[steam-easygrid 4] Grids replaced for", uiStore.currentGameListSelection.strCollectionId);
-                    }}> Replace grids </MenuItem>
-                    <MenuItem onClick={async () => {
-                        const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                        for (let j = 0; j < currentColl.allApps.length; j++) {
-                            gridButton.firstChild.innerHTML = `Working... (${j}/${currentColl.allApps.length})`;
-                            SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
-                            SetCustomizationState(currentColl.allApps[j].appid, 0, false);
-                        }
-                        gridButton.firstChild.innerHTML = "Done!";
-                        console.log("[steam-easygrid 4] Grids cleared for", uiStore.currentGameListSelection.strCollectionId);
-                    }}> Reset grids </MenuItem>
-                </Menu>,
-                gridButton,
-                {bForcePopup: true}
+    if (!oldGridDropdown && pluginConfig.collection_button) {
+        const gridDropdown = popup.m_popup.document.createElement("div");
+        gridDropdown.className = "easygrid-dropdown";
+
+        const DropdownComponent = () => {
+            const sortModule = findModule(m => m.SortingDropDown && m.SortingDropDownLabel) || {};
+            const [statusText, setStatusText] = useState("EasyGrid");
+            const [selected, setSelected] = useState('replace'); 
+
+            const options = [
+                { label: 'Replace grids', data: 'replace' },
+                { label: 'Reset grids', data: 'reset' }
+            ];
+
+            const handleChange = async (option: { data: string; label: string }) => {
+                const action = option.data;
+                setSelected(action); 
+
+                const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+
+                if (action === 'replace') {
+                    const excludedAppIDs = getExcludedAppIDs();
+                    for (let j = 0; j < currentColl.allApps.length; j++) {
+                        setStatusText(`Working... (${j}/${currentColl.allApps.length})`);
+                        const appid = currentColl.allApps[j].appid;
+                        if (appid in excludedAppIDs) continue;
+                        if (!pluginConfig.replace_custom_images && GetCustomizationState(appid, 0)) continue;
+                        await applyFirstWorkingImage(appid, 0);
+                        delete searchCache[appid.toString()];
+                    }
+                    setStatusText("Done!");
+                    console.log("[steam-easygrid 4] Grids replaced for", uiStore.currentGameListSelection.strCollectionId);
+                }
+
+                if (action === 'reset') {
+                    for (let j = 0; j < currentColl.allApps.length; j++) {
+                        setStatusText(`Working... (${j}/${currentColl.allApps.length})`);
+                        SteamClient.Apps.ClearCustomArtworkForApp(currentColl.allApps[j].appid, 0);
+                        SetCustomizationState(currentColl.allApps[j].appid, 0, false);
+                    }
+                    setStatusText("Done!");
+                    console.log("[steam-easygrid 4] Grids cleared for", uiStore.currentGameListSelection.strCollectionId);
+                }
+                
+                setTimeout(() => setStatusText("EasyGrid"), 3000);
+            };
+
+            return (
+                <div className={sortModule.SortingDropDown} tabIndex={-1}>
+                    <div className={sortModule.SortingDropDownLabel}>
+                        {statusText}
+                    </div>
+                    <Dropdown
+                        rgOptions={options}
+                        selectedOption={selected}
+                        onChange={handleChange}
+                    />
+                </div>
             );
-        });
+        };
+
+        const gridDropdownRoot = createRoot(gridDropdown);
+        gridDropdownRoot.render(<DropdownComponent />);
+
+        collOptionsDiv.insertBefore(gridDropdown, collOptionsDiv.firstChild!.nextSibling);
     }
 }
 
