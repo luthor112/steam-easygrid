@@ -5,6 +5,15 @@ local utils = require("utils")
 
 local is_windows = package.config:sub(1, 1) == "\\"
 
+local img_cache = {}
+local CHUNK_SIZE = 6 * 1024 * 1024
+
+local function make_tmpfile()
+    return is_windows and
+        ((os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp") .. "\\sgdb_" .. tostring(os.time()) .. ".bin") or
+        ("/tmp/sgdb_" .. tostring(os.time()) .. ".bin")
+end
+
 -- INTERFACES
 
 function call_api_backend(a_bearer, b_endpoint)
@@ -32,52 +41,64 @@ function call_api_backend(a_bearer, b_endpoint)
     return response.body
 end
 
-function get_encoded_image(img_url)
-    logger:info("Requesting image " .. img_url)
+function download_image(a_img_url)
+    logger:info("Downloading image " .. a_img_url)
 
-    local tmpfile = is_windows and
-        ((os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp") .. "\\sgdb_" .. tostring(os.time()) .. ".bin") or
-        ("/tmp/sgdb_" .. tostring(os.time()) .. ".bin")
+    if img_cache[a_img_url] then
+        os.remove(img_cache[a_img_url])
+        img_cache[a_img_url] = nil
+    end
 
-    local result, err = http.download(img_url, tmpfile)
+    local tmpfile = make_tmpfile()
+    local result, err = http.download(a_img_url, tmpfile)
     if not result then
         logger:error("http.download failed: " .. tostring(err))
-        return ""
+        return 0
     end
     if result.status ~= 200 then
         logger:error(string.format("Got HTTP %d", result.status))
         os.remove(tmpfile)
-        return ""
+        return 0
     end
-    if result.bytes_written > 10 * 1024 * 1024 then
-        logger:warn(string.format("Image too large (%d bytes), skipping", result.bytes_written))
-        os.remove(tmpfile)
-        return ""
-    end
-    logger:info(string.format("Image size: %d bytes", result.bytes_written))
 
-    local f = io.open(tmpfile, "rb")
-    if not f then
-        logger:error("Could not open temp file: " .. tmpfile)
+    img_cache[a_img_url] = tmpfile
+    logger:info(string.format("Cached %d bytes at %s", result.bytes_written, tmpfile))
+    return result.bytes_written
+end
+
+function get_image_chunk(a_img_url, b_chunk_index)
+    local path = img_cache[a_img_url]
+    if not path then
+        logger:error("No cached image for: " .. a_img_url)
         return ""
     end
-    local data = f:read("*a")
+
+    local f = io.open(path, "rb")
+    if not f then
+        logger:error("Cannot open cached file: " .. path)
+        return ""
+    end
+
+    local offset = b_chunk_index * CHUNK_SIZE
+    f:seek("set", offset)
+    local data = f:read(CHUNK_SIZE)
     f:close()
-    os.remove(tmpfile)
 
     if not data or #data == 0 then
-        logger:error("Temp file is empty")
         return ""
     end
 
     local b64 = utils.base64_encode(data)
-    if not b64 or b64 == "" then
-        logger:error("base64_encode returned empty")
-        return ""
-    end
+    logger:info(string.format("Chunk %d: %d raw bytes → %d b64 chars", b_chunk_index, #data, #(b64 or "")))
+    return b64 or ""
+end
 
-    logger:info(string.format("Image encoded %d chars", #b64))
-    return b64
+function cleanup_image(a_img_url)
+    if img_cache[a_img_url] then
+        logger:info("Cleaning up: " .. img_cache[a_img_url])
+        os.remove(img_cache[a_img_url])
+        img_cache[a_img_url] = nil
+    end
 end
 
 function log_frontend(msg)
