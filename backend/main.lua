@@ -1,6 +1,7 @@
 local logger = require("logger")
 local millennium = require("millennium")
 local http = require("http")
+local utils = require("utils")
 
 local is_windows = package.config:sub(1, 1) == "\\"
 
@@ -31,102 +32,52 @@ function call_api_backend(a_bearer, b_endpoint)
     return response.body
 end
 
-local function get_encoded_image_linux(img_url)
-    local tmpfile = "/tmp/sgdb_" .. tostring(os.time()) .. ".bin"
+function get_encoded_image(img_url)
+    logger:info("Requesting image " .. img_url)
 
-    local dl_handle = io.popen(string.format(
-        "env -u LD_LIBRARY_PATH curl -s -L --max-time 30 --max-filesize 10485760 -w '%%{http_code}' -o %q %q 2>&1",
-        tmpfile, img_url
-    ))
-    if not dl_handle then
-        logger:error("io.popen unavailable")
+    local tmpfile = is_windows and
+        ((os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp") .. "\\sgdb_" .. tostring(os.time()) .. ".bin") or
+        ("/tmp/sgdb_" .. tostring(os.time()) .. ".bin")
+
+    local result, err = http.download(img_url, tmpfile)
+    if not result then
+        logger:error("http.download failed: " .. tostring(err))
         return ""
     end
-    local curl_out = dl_handle:read("*a")
-    dl_handle:close()
-
-    if curl_out ~= "200" then
-        logger:error("curl failed or non-200: " .. tostring(curl_out))
+    if result.status ~= 200 then
+        logger:error(string.format("Got HTTP %d", result.status))
         os.remove(tmpfile)
         return ""
     end
-
-    local sz_h = io.popen(string.format("stat -c%%s %q 2>/dev/null", tmpfile))
-    local fsize = tonumber(sz_h and sz_h:read("*a") or "0") or 0
-    if sz_h then sz_h:close() end
-    if fsize > 10485760 then
-        logger:error(string.format("Image too large (%d bytes), skipping", fsize))
+    if result.bytes_written > 10 * 1024 * 1024 then
+        logger:warn(string.format("Image too large (%d bytes), skipping", result.bytes_written))
         os.remove(tmpfile)
         return ""
     end
-    logger:info(string.format("Image size: %d bytes", fsize))
+    logger:info(string.format("Image size: %d bytes", result.bytes_written))
 
-    local b64_handle = io.popen(string.format("env -u LD_LIBRARY_PATH base64 -w 0 %q", tmpfile))
-    if not b64_handle then
-        logger:error("base64 popen failed")
-        os.remove(tmpfile)
+    local f = io.open(tmpfile, "rb")
+    if not f then
+        logger:error("Could not open temp file: " .. tmpfile)
         return ""
     end
-    local b64 = b64_handle:read("*a")
-    b64_handle:close()
+    local data = f:read("*a")
+    f:close()
     os.remove(tmpfile)
 
-    logger:info(string.format("Image encoded %d chars", #(b64 or "")))
-    return b64 or ""
-end
-
-local function get_encoded_image_windows(img_url)
-    local tmpdir = os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp"
-    local tmpfile = tmpdir .. "\\sgdb_" .. tostring(os.time()) .. ".bin"
-
-    local dl_handle = io.popen(string.format(
-        'curl -s -L --max-time 30 --max-filesize 10485760 -w "%%{http_code}" -o "%s" "%s" 2>&1',
-        tmpfile, img_url
-    ))
-    if not dl_handle then
-        logger:error("io.popen unavailable")
-        return ""
-    end
-    local curl_out = dl_handle:read("*a")
-    dl_handle:close()
-
-    local http_code = curl_out:match("^%s*(.-)%s*$")
-    if http_code ~= "200" then
-        logger:error("curl failed: " .. tostring(curl_out))
-        os.remove(tmpfile)
+    if not data or #data == 0 then
+        logger:error("Temp file is empty")
         return ""
     end
 
-    local b64_handle = io.popen(string.format(
-        "powershell -NoProfile -NonInteractive -Command \"[Convert]::ToBase64String([System.IO.File]::ReadAllBytes('%s'))\"",
-        tmpfile
-    ))
-    if not b64_handle then
-        logger:error("powershell popen failed")
-        os.remove(tmpfile)
-        return ""
-    end
-    local b64 = b64_handle:read("*a")
-    b64_handle:close()
-    os.remove(tmpfile)
-
-    b64 = b64:gsub("%s+", "")
-    if b64 == "" then
-        logger:error("base64 encoding produced empty result")
+    local b64 = utils.base64_encode(data)
+    if not b64 or b64 == "" then
+        logger:error("base64_encode returned empty")
         return ""
     end
 
     logger:info(string.format("Image encoded %d chars", #b64))
     return b64
-end
-
-function get_encoded_image(img_url)
-    logger:info("Requesting image " .. img_url)
-    if is_windows then
-        return get_encoded_image_windows(img_url)
-    else
-        return get_encoded_image_linux(img_url)
-    end
 end
 
 function log_frontend(msg)
