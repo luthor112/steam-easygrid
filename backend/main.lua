@@ -3,9 +3,6 @@ local millennium = require("millennium")
 local http = require("http")
 
 local is_windows = package.config:sub(1, 1) == "\\"
-if is_windows then
-    utils = require("utils")
-end
 
 -- INTERFACES
 
@@ -79,23 +76,48 @@ local function get_encoded_image_linux(img_url)
 end
 
 local function get_encoded_image_windows(img_url)
-    local response, err = http.get(img_url)
-    if not response then
-        logger:error(err)
+    local tmpdir = os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp"
+    local tmpfile = tmpdir .. "\\sgdb_" .. tostring(os.time()) .. ".bin"
+
+    local dl_handle = io.popen(string.format(
+        'curl -s -L --max-time 30 --max-filesize 10485760 -w "%%{http_code}" -o "%s" "%s" 2>&1',
+        tmpfile, img_url
+    ))
+    if not dl_handle then
+        logger:error("io.popen unavailable")
         return ""
     end
-    if response.status ~= 200 then
-        logger:error(string.format("Got HTTP %d", response.status))
+    local curl_out = dl_handle:read("*a")
+    dl_handle:close()
+
+    local http_code = curl_out:match("^%s*(.-)%s*$")
+    if http_code ~= "200" then
+        logger:error("curl failed: " .. tostring(curl_out))
+        os.remove(tmpfile)
         return ""
     end
 
-    local raw_size = #response.body
-    if raw_size > 10 * 1024 * 1024 then
-        logger:warn(string.format("Image %d bytes exceeds 10 MB limit, skipping", raw_size))
+    local b64_handle = io.popen(string.format(
+        "powershell -NoProfile -NonInteractive -Command \"[Convert]::ToBase64String([System.IO.File]::ReadAllBytes('%s'))\"",
+        tmpfile
+    ))
+    if not b64_handle then
+        logger:error("powershell popen failed")
+        os.remove(tmpfile)
+        return ""
+    end
+    local b64 = b64_handle:read("*a")
+    b64_handle:close()
+    os.remove(tmpfile)
+
+    b64 = b64:gsub("%s+", "")
+    if b64 == "" then
+        logger:error("base64 encoding produced empty result")
         return ""
     end
 
-    return utils.base64_encode(response.body)
+    logger:info(string.format("Image encoded %d chars", #b64))
+    return b64
 end
 
 function get_encoded_image(img_url)
