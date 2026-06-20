@@ -7,11 +7,13 @@ local is_windows = package.config:sub(1, 1) == "\\"
 
 local img_cache = {}
 local CHUNK_SIZE = 6 * 1024 * 1024
+local download_counter = 0
 
 local function make_tmpfile()
+    download_counter = download_counter + 1
     return is_windows and
-        ((os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp") .. "\\sgdb_" .. tostring(os.time()) .. ".bin") or
-        ("/tmp/sgdb_" .. tostring(os.time()) .. ".bin")
+        ((os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp") .. "\\sgdb_" .. tostring(download_counter) .. ".bin") or
+        ("/tmp/sgdb_" .. tostring(download_counter) .. ".bin")
 end
 
 -- INTERFACES

@@ -382,6 +382,7 @@ async function applyFirstWorkingImage(appId: number, imgType: number): Promise<b
             for (const item of result.data) {
                 const imageData = await fetchEncodedImage(item.url);
                 if (imageData) {
+                    await SteamClient.Apps.ClearCustomArtworkForApp(appId, imgType);
                     SteamClient.Apps.SetCustomArtworkForApp(appId, imageData, getImageExtFromUrl(item.url), imgType);
                     SetCustomizationState(appId, imgType, true);
                     return true;
@@ -561,7 +562,8 @@ function getEasyGridComponent(popup: any) {
             transform: 'translate(-50%, -50%)',
             color: 'darkgray',
             fontSize: '24px',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            pointerEvents: "none",
         };
 
         const [steamGridDBId, setSteamGridDBId] = useState<number>(-1);
@@ -601,12 +603,15 @@ function getEasyGridComponent(popup: any) {
         const SetNewImage = async (e: React.MouseEvent<HTMLElement>) => {
             const targetNum = Number((e.target as HTMLElement).dataset.imageindex);
             console.log("[steam-easygrid 4] Setting image to:", targetNum);
+            const container = (e.target as HTMLElement).parentElement!.parentElement!;
+            container.querySelectorAll<HTMLElement>('.easygrid-status').forEach(el => { el.innerText = ''; });
             ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "DOWNLOADING";
             ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkgray';
-            
+
             const newImage = await getImageData(props.appid, props.imagetype, targetNum);
             if (newImage) {
                 const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
+                await SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
                 SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt!, props.imagetype);
                 SetCustomizationState(props.appid, props.imagetype, true);
 
@@ -648,14 +653,14 @@ function getEasyGridComponent(popup: any) {
                             return (
                                 <div style={imageWrapperStyle}>
                                     <img key={index} data-imageindex={index} src={thumbData["thumb"]} alt={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
-                                    <div key={`${index}-status`} style={statusStyle}></div>
+                                    <div key={`${index}-status`} className="easygrid-status" style={statusStyle}></div>
                                 </div>
                             );
 
                         return (
                             <div style={imageWrapperStyle}>
                                 <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData["thumb"]} title={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
-                                <div key={`${index}-status`} style={statusStyle}></div>
+                                <div key={`${index}-status`} className="easygrid-status" style={statusStyle}></div>
                             </div>
                         );
                     })}
