@@ -11,8 +11,30 @@ declare global {
 
 // Backend functions
 const call_api_backend = callable<[{ a_bearer: string, b_endpoint: string }], string>('call_api_backend');
-const get_encoded_image = callable<[{ img_url: string }], string>('get_encoded_image');
+const download_image = callable<[{ a_img_url: string }], number>('download_image');
+const get_image_chunk = callable<[{ a_img_url: string, b_chunk_index: number }], string>('get_image_chunk');
+const cleanup_image = callable<[{ a_img_url: string }], void>('cleanup_image');
 const log_frontend = callable<[{ msg: string }], void>('log_frontend');
+
+const CHUNK_SIZE_BYTES = 6 * 1024 * 1024;
+
+async function fetchEncodedImage(imgURL: string): Promise<string | undefined> {
+    const size = await download_image({ a_img_url: imgURL });
+    if (!size) return undefined;
+
+    const numChunks = Math.ceil(size / CHUNK_SIZE_BYTES);
+    const parts: string[] = [];
+    for (let i = 0; i < numChunks; i++) {
+        const chunk = await get_image_chunk({ a_img_url: imgURL, b_chunk_index: i });
+        if (!chunk) {
+            await cleanup_image({ a_img_url: imgURL });
+            return undefined;
+        }
+        parts.push(chunk);
+    }
+    await cleanup_image({ a_img_url: imgURL });
+    return parts.join('') || undefined;
+}
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -358,8 +380,9 @@ async function applyFirstWorkingImage(appId: number, imgType: number): Promise<b
             const result = await callAPI(`${imgSearchTypeName}/game/${gameId}?${baseQ}&types=${types}&page=${page}`);
             if (!result?.data?.length) return false;
             for (const item of result.data) {
-                const imageData = await get_encoded_image({ img_url: item.url });
+                const imageData = await fetchEncodedImage(item.url);
                 if (imageData) {
+                    await SteamClient.Apps.ClearCustomArtworkForApp(appId, imgType);
                     SteamClient.Apps.SetCustomArtworkForApp(appId, imageData, getImageExtFromUrl(item.url), imgType);
                     SetCustomizationState(appId, imgType, true);
                     return true;
@@ -382,9 +405,9 @@ async function getImageData(appId: number, imgType: number, imgNum: number) {
     if (searchResults && searchResults.length > imgNum) {
         const imgURL = searchResults[imgNum].url;
         await log_frontend({ msg: `requesting via backend url=${imgURL}` });
-        const b64 = await get_encoded_image({ img_url: imgURL });
+        const b64 = await fetchEncodedImage(imgURL);
         await log_frontend({ msg: `base64 length=${b64 ? b64.length : 'null'}` });
-        return b64 || undefined;
+        return b64;
     }
     return undefined;
 }
@@ -539,7 +562,8 @@ function getEasyGridComponent(popup: any) {
             transform: 'translate(-50%, -50%)',
             color: 'darkgray',
             fontSize: '24px',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            pointerEvents: "none",
         };
 
         const [steamGridDBId, setSteamGridDBId] = useState<number>(-1);
@@ -579,12 +603,15 @@ function getEasyGridComponent(popup: any) {
         const SetNewImage = async (e: React.MouseEvent<HTMLElement>) => {
             const targetNum = Number((e.target as HTMLElement).dataset.imageindex);
             console.log("[steam-easygrid 4] Setting image to:", targetNum);
+            const container = (e.target as HTMLElement).parentElement!.parentElement!;
+            container.querySelectorAll<HTMLElement>('.easygrid-status').forEach(el => { el.innerText = ''; });
             ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "DOWNLOADING";
             ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkgray';
-            
+
             const newImage = await getImageData(props.appid, props.imagetype, targetNum);
             if (newImage) {
                 const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
+                await SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
                 SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt!, props.imagetype);
                 SetCustomizationState(props.appid, props.imagetype, true);
 
@@ -626,14 +653,14 @@ function getEasyGridComponent(popup: any) {
                             return (
                                 <div style={imageWrapperStyle}>
                                     <img key={index} data-imageindex={index} src={thumbData["thumb"]} alt={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
-                                    <div key={`${index}-status`} style={statusStyle}></div>
+                                    <div key={`${index}-status`} className="easygrid-status" style={statusStyle}></div>
                                 </div>
                             );
 
                         return (
                             <div style={imageWrapperStyle}>
                                 <video key={index} data-imageindex={index} autoPlay loop muted playsInline src={thumbData["thumb"]} title={thumbData["type"]} style={imageStyle} onClick={SetNewImage}/>
-                                <div key={`${index}-status`} style={statusStyle}></div>
+                                <div key={`${index}-status`} className="easygrid-status" style={statusStyle}></div>
                             </div>
                         );
                     })}

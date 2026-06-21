@@ -1,10 +1,19 @@
 local logger = require("logger")
 local millennium = require("millennium")
 local http = require("http")
+local utils = require("utils")
 
 local is_windows = package.config:sub(1, 1) == "\\"
-if is_windows then
-    utils = require("utils")
+
+local img_cache = {}
+local CHUNK_SIZE = 6 * 1024 * 1024
+local download_counter = 0
+
+local function make_tmpfile()
+    download_counter = download_counter + 1
+    return is_windows and
+        ((os.getenv("TEMP") or os.getenv("TMP") or "C:\\Windows\\Temp") .. "\\sgdb_" .. tostring(download_counter) .. ".bin") or
+        ("/tmp/sgdb_" .. tostring(download_counter) .. ".bin")
 end
 
 -- INTERFACES
@@ -34,76 +43,63 @@ function call_api_backend(a_bearer, b_endpoint)
     return response.body
 end
 
-local function get_encoded_image_linux(img_url)
-    local tmpfile = "/tmp/sgdb_" .. tostring(os.time()) .. ".bin"
+function download_image(a_img_url)
+    logger:info("Downloading image " .. a_img_url)
 
-    local dl_handle = io.popen(string.format(
-        "env -u LD_LIBRARY_PATH curl -s -L --max-time 30 --max-filesize 10485760 -w '%%{http_code}' -o %q %q 2>&1",
-        tmpfile, img_url
-    ))
-    if not dl_handle then
-        logger:error("io.popen unavailable")
-        return ""
+    if img_cache[a_img_url] then
+        os.remove(img_cache[a_img_url])
+        img_cache[a_img_url] = nil
     end
-    local curl_out = dl_handle:read("*a")
-    dl_handle:close()
 
-    if curl_out ~= "200" then
-        logger:error("curl failed or non-200: " .. tostring(curl_out))
+    local tmpfile = make_tmpfile()
+    local result, err = http.download(a_img_url, tmpfile)
+    if not result then
+        logger:error("http.download failed: " .. tostring(err))
+        return 0
+    end
+    if result.status ~= 200 then
+        logger:error(string.format("Got HTTP %d", result.status))
         os.remove(tmpfile)
+        return 0
+    end
+
+    img_cache[a_img_url] = tmpfile
+    logger:info(string.format("Cached %d bytes at %s", result.bytes_written, tmpfile))
+    return result.bytes_written
+end
+
+function get_image_chunk(a_img_url, b_chunk_index)
+    local path = img_cache[a_img_url]
+    if not path then
+        logger:error("No cached image for: " .. a_img_url)
         return ""
     end
 
-    local sz_h = io.popen(string.format("stat -c%%s %q 2>/dev/null", tmpfile))
-    local fsize = tonumber(sz_h and sz_h:read("*a") or "0") or 0
-    if sz_h then sz_h:close() end
-    if fsize > 10485760 then
-        logger:error(string.format("Image too large (%d bytes), skipping", fsize))
-        os.remove(tmpfile)
+    local f = io.open(path, "rb")
+    if not f then
+        logger:error("Cannot open cached file: " .. path)
         return ""
     end
-    logger:info(string.format("Image size: %d bytes", fsize))
 
-    local b64_handle = io.popen(string.format("env -u LD_LIBRARY_PATH base64 -w 0 %q", tmpfile))
-    if not b64_handle then
-        logger:error("base64 popen failed")
-        os.remove(tmpfile)
+    local offset = b_chunk_index * CHUNK_SIZE
+    f:seek("set", offset)
+    local data = f:read(CHUNK_SIZE)
+    f:close()
+
+    if not data or #data == 0 then
         return ""
     end
-    local b64 = b64_handle:read("*a")
-    b64_handle:close()
-    os.remove(tmpfile)
 
-    logger:info(string.format("Image encoded %d chars", #(b64 or "")))
+    local b64 = utils.base64_encode(data)
+    logger:info(string.format("Chunk %d: %d raw bytes → %d b64 chars", b_chunk_index, #data, #(b64 or "")))
     return b64 or ""
 end
 
-local function get_encoded_image_windows(img_url)
-    local response, err = http.get(img_url)
-    if not response then
-        logger:error(err)
-        return ""
-    end
-    if response.status ~= 200 then
-        logger:error(string.format("Got HTTP %d", response.status))
-        return ""
-    end
-
-    local raw_size = #response.body
-    if raw_size > 10 * 1024 * 1024 then
-        logger:warn(string.format("Image %d bytes exceeds 10 MB limit, skipping", raw_size))
-        return ""
-    end
-
-    return utils.base64_encode(response.body)
-end
-
-function get_encoded_image(img_url)
-    logger:info("Requesting image " .. img_url)
-    if is_windows then
-        return get_encoded_image_windows(img_url)
-    else
-        return get_encoded_image_linux(img_url)
+function cleanup_image(a_img_url)
+    if img_cache[a_img_url] then
+        logger:info("Cleaning up: " .. img_cache[a_img_url])
+        os.remove(img_cache[a_img_url])
+        img_cache[a_img_url] = nil
     end
 end
 
