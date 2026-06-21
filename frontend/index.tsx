@@ -853,25 +853,25 @@ const SingleSetting = (props: SingleSettingProps) => {
     } else if (props.type === "text") {
         return (
             <Field label={props.label} description={props.description} bottomSeparator="standard" focusable>
-                <TextField disabled={isDisabled} defaultValue={pluginConfig[props.name]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = e.currentTarget.value; saveConfig(); }} />
+                <TextField style={{ width: "100%", boxSizing: "border-box" }} disabled={isDisabled} defaultValue={pluginConfig[props.name]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = e.currentTarget.value; saveConfig(); }} />
             </Field>
         );
     } else if (props.type === "num") {
         return (
             <Field label={props.label} description={props.description} bottomSeparator="standard" focusable>
-                <TextField disabled={isDisabled} mustBeNumeric={true} defaultValue={pluginConfig[props.name].toString()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = Number(e.currentTarget.value); saveConfig(); }} />
+                <TextField style={{ width: "100%", boxSizing: "border-box" }} disabled={isDisabled} mustBeNumeric={true} defaultValue={pluginConfig[props.name].toString()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = Number(e.currentTarget.value); saveConfig(); }} />
             </Field>
         );
     } else if (props.type === "textchild") {
         return (
             <Field label={props.label} description={props.description} bottomSeparator="standard" focusable>
-                <TextField disabled={isDisabled} defaultValue={(pluginConfig[props.parentname] as ImageTypeSubConfig)[props.name]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { (pluginConfig[props.parentname] as ImageTypeSubConfig)[props.name] = e.currentTarget.value; saveConfig(); }} />
+                <TextField style={{ width: "100%", boxSizing: "border-box" }} disabled={isDisabled} defaultValue={(pluginConfig[props.parentname] as ImageTypeSubConfig)[props.name]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { (pluginConfig[props.parentname] as ImageTypeSubConfig)[props.name] = e.currentTarget.value; saveConfig(); }} />
             </Field>
         );
     } else if (props.type === "array") {
         return (
             <Field label={props.label} description={props.description} bottomSeparator="standard" focusable>
-                <TextField disabled={isDisabled} defaultValue={pluginConfig[props.name].join(", ")} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = e.currentTarget.value.split(",").map(s => s.trim()).filter(s => s.length > 0); saveConfig(); }} />
+                <TextField style={{ width: "100%", boxSizing: "border-box" }} disabled={isDisabled} defaultValue={pluginConfig[props.name].join(", ")} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { pluginConfig[props.name] = e.currentTarget.value.split(",").map(s => s.trim()).filter(s => s.length > 0); saveConfig(); }} />
             </Field>
         );
     } else {
