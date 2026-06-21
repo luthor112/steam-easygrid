@@ -933,7 +933,7 @@ const SettingsContent = () => {
         <div>
             <SingleSetting name="api_key" type="text" label="API key" description="Your SteamGridDB API key" />
             <SingleSetting name="display_name_fallback" type="bool" label="Search by name fallback" description="Fallback to searching by name if needed" />
-            <SingleSetting name="replace_custom_images" type="bool" label="Always replace cusmtom Images" description="When replacing all grid images, replace custom set ones as well" />
+            <SingleSetting name="replace_custom_images" type="bool" label="Always replace custom Images" description="When replacing all grid images, replace custom set ones as well" />
             <SingleSetting name="appids_excluded_from_replacement" type="text" label="Exclude APPIDs from replacement" description="When replacing all grid images, skip these apps (separate by semicolon)" />
             <SingleSetting name="prioritize_animated" type="bool" label="Prioritize animated images" description="Prioritize animated images" />
             <SingleSetting name="prioritize_authors" type="array" label="Prioritize Authors" description="Prioritize images by author (comma-separated, in order)" />
