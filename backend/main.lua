@@ -2,6 +2,7 @@ local logger = require("logger")
 local millennium = require("millennium")
 local http = require("http")
 local utils = require("utils")
+local icons = require("icons")
 
 local is_windows = package.config:sub(1, 1) == "\\"
 
@@ -105,6 +106,35 @@ end
 
 function log_frontend(msg)
     logger:info("[frontend] " .. tostring(msg))
+end
+
+-- ICONS
+
+function set_icon_from_url(a_appid, b_img_url, c_extension)
+    local tmp_path = img_cache[b_img_url]
+    if not tmp_path then
+        logger:error("set_icon_from_url: no cached download for " .. tostring(b_img_url))
+        return false
+    end
+
+    local f = io.open(tmp_path, "rb")
+    if not f then
+        logger:error("set_icon_from_url: cannot open cached file: " .. tmp_path)
+        return false
+    end
+    local bytes = f:read("*a")
+    f:close()
+
+    local result = icons.write_icon(a_appid, bytes, c_extension)
+
+    os.remove(tmp_path)
+    img_cache[b_img_url] = nil
+
+    return result
+end
+
+function clear_icon(a_appid)
+    return icons.clear_icon(a_appid)
 end
 
 -- PLUGIN MANAGEMENT

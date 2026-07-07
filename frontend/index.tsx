@@ -15,6 +15,10 @@ const download_image = callable<[{ a_img_url: string }], number>('download_image
 const get_image_chunk = callable<[{ a_img_url: string, b_chunk_index: number }], string>('get_image_chunk');
 const cleanup_image = callable<[{ a_img_url: string }], void>('cleanup_image');
 const log_frontend = callable<[{ msg: string }], void>('log_frontend');
+const set_icon_from_url = callable<[{ a_appid: number, b_img_url: string, c_extension: string }], boolean>('set_icon_from_url');
+const clear_icon = callable<[{ a_appid: number }], boolean>('clear_icon');
+
+const ICON_IMG_TYPE = 4;
 
 const CHUNK_SIZE_BYTES = 6 * 1024 * 1024;
 
@@ -360,6 +364,17 @@ function getImageExtFromUrl(imgURL: string): 'jpg' | 'png' {
     return imgURL.endsWith(".jpg") || imgURL.endsWith(".jpeg") || imgURL.endsWith(".jfif") ? 'jpg' : 'png';
 }
 
+function getIconExtFromUrl(imgURL: string): string {
+    const match = imgURL.match(/\.([A-Za-z0-9]+)(?:\?[^/]*)?$/);
+    return match ? match[1].toLowerCase() : 'png';
+}
+
+async function applyIconFromUrl(appId: number, imgURL: string): Promise<boolean> {
+    const size = await download_image({ a_img_url: imgURL });
+    if (!size) return false;
+    return await set_icon_from_url({ a_appid: appId, b_img_url: imgURL, c_extension: getIconExtFromUrl(imgURL) });
+}
+
 async function applyFirstWorkingImage(appId: number, imgType: number): Promise<boolean> {
     const gameId = await getSteamGridDBId(appId);
     if (!gameId) return false;
@@ -380,6 +395,13 @@ async function applyFirstWorkingImage(appId: number, imgType: number): Promise<b
             const result = await callAPI(`${imgSearchTypeName}/game/${gameId}?${baseQ}&types=${types}&page=${page}`);
             if (!result?.data?.length) return false;
             for (const item of result.data) {
+                if (imgType === ICON_IMG_TYPE) {
+                    if (await applyIconFromUrl(appId, item.url)) {
+                        SetCustomizationState(appId, imgType, true);
+                        return true;
+                    }
+                    continue;
+                }
                 const imageData = await fetchEncodedImage(item.url);
                 if (imageData) {
                     await SteamClient.Apps.ClearCustomArtworkForApp(appId, imgType);
@@ -636,13 +658,23 @@ function getEasyGridComponent(popup: any) {
             ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "DOWNLOADING";
             ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkgray';
 
-            const newImage = await getImageData(props.appid, props.imagetype, targetNum);
-            if (newImage) {
-                const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
-                await SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
-                SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt!, props.imagetype);
-                SetCustomizationState(props.appid, props.imagetype, true);
+            let success: boolean;
+            if (props.imagetype === ICON_IMG_TYPE) {
+                const searchResults = await getSearchData(props.appid, props.imagetype);
+                const imgURL = searchResults?.[targetNum]?.url;
+                success = imgURL ? await applyIconFromUrl(props.appid, imgURL) : false;
+            } else {
+                const newImage = await getImageData(props.appid, props.imagetype, targetNum);
+                success = !!newImage;
+                if (newImage) {
+                    const imageExt = await getImageExt(props.appid, props.imagetype, targetNum);
+                    await SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
+                    SteamClient.Apps.SetCustomArtworkForApp(props.appid, newImage, imageExt!, props.imagetype);
+                }
+            }
 
+            if (success) {
+                SetCustomizationState(props.appid, props.imagetype, true);
                 ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.innerText = "DONE";
                 ((e.target as HTMLElement).nextElementSibling as HTMLElement)!.style.color = 'darkgreen';
             } else {
@@ -653,7 +685,11 @@ function getEasyGridComponent(popup: any) {
 
         const SetOriginalImage = async () => {
             console.log("[steam-easygrid 4] Resetting image...");
-            SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
+            if (props.imagetype === ICON_IMG_TYPE) {
+                await clear_icon({ a_appid: props.appid });
+            } else {
+                SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
+            }
             SetCustomizationState(props.appid, props.imagetype, false);
         };
 
