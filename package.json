@@ -12,7 +12,7 @@
   },
   "type": "module",
   "name": "steam-easygrid",
-  "version": "4.2.2",
+  "version": "4.3.0",
   "description": "Quick and easy SteamGridDB integration",
   "main": "./frontend/index.jsx",
   "author": "luthor112",

@@ -4,6 +4,6 @@
     "name": "steam-easygrid",
     "common_name": "Easy SteamGrid",
     "description": "Quick and easy SteamGridDB integration",
-    "version": "4.2.2",
+    "version": "4.3.0",
     "backendType": "lua"
 }
