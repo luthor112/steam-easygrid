@@ -98,6 +98,16 @@ async function renderHome(popup: any) {
     }
 }
 
+async function renderHomeAndObserve(popup: any) {
+    await renderHome(popup);
+
+    const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
+    const headerObserver = new MutationObserver(async () => {
+        await renderHome(popup);
+    });
+    headerObserver.observe(headerDiv.parentNode!, { subtree: true, childList: true, attributes: true });
+}
+
 async function renderCollection(popup: any) {
     const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
     const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
@@ -121,6 +131,16 @@ async function renderCollection(popup: any) {
             );
         });
     }
+}
+
+async function renderCollectionAndObserve(popup: any) {
+    await renderCollection(popup);
+
+    const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
+    const collOptionsObserver = new MutationObserver(async () => {
+        await renderCollection(popup);
+    });
+    collOptionsObserver.observe(collOptionsDiv.parentNode!, { subtree: true, childList: true, attributes: true });
 }
 
 const isPropertiesMenuItem = (node: any): boolean => {
@@ -319,9 +339,9 @@ export async function OnPopupCreation(popup: any) {
         void previousURL;
 
         if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home") {
-            await renderHome(popup);
+            await renderHomeAndObserve(popup);
         } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/")) {
-            await renderCollection(popup);
+            await renderCollectionAndObserve(popup);
         } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/app/")) {
             await renderAppAndObserve(popup);
         }

@@ -1,4 +1,4 @@
-import { SidebarNavigation, ModalRoot, findModuleExport, routerHook, EUIMode, DialogButton, TextField, Focusable, Navigation, showModal } from "@steambrew/client";
+import { SidebarNavigation, ModalRoot, findModuleExport, routerHook, EUIMode, DialogButton, TextField, Focusable, Navigation, showModal, sleep } from "@steambrew/client";
 import { clear_icon } from "./backend";
 import { pluginConfig, gameIDOverrides, searchCache, imgTypeSettingsMap, ICON_IMG_TYPE, SetCustomizationState, persistConfig } from "./config";
 import { getSteamGridDBId, getSearchData, applyIconFromUrl, getImageData, getImageExt } from "./api";
@@ -329,6 +329,10 @@ export async function openEasyGridWindow(appid: number, appname: string, windowR
     const modalPages = buildEasyGridPages(appid, appname, windowRef);
 
     if (ResizablePopupWindowComponent) {
+        if (easyGridPopupState.open) {
+            setEasyGridPopupState({ open: false, content: null });
+            await sleep(50);
+        }
         setEasyGridPopupState({
             open: true,
             content: <ResizableSidebarNavigation pages={modalPages} title={appname} />,
