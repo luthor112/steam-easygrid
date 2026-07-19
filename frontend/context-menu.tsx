@@ -1,6 +1,5 @@
-import { Millennium, Menu, MenuItem, MenuGroup, showContextMenu, DialogButton, Dropdown, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
+import { Millennium, Menu, MenuItem, MenuGroup, showContextMenu, DialogButton, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
 import { createRoot } from "react-dom/client";
-import { useState } from "react";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
 import { applyFirstWorkingImage, autoReplaceForApp } from "./api";
 import { openEasyGridForApp, openSGDBWindow, setDesktopPopup } from "./easygrid-modal";
@@ -35,6 +34,37 @@ function resetCollectionImages(currentColl: any, imgTypes: number[], onProgress:
     }
 }
 
+function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text: string) => void) {
+    return (
+        <>
+            <MenuGroup label="Replace">
+                {IMAGE_TYPE_LABELS.map((label, idx) => (
+                    <MenuItem key={idx} onClick={async () => {
+                        await replaceCollectionImages(getCurrentColl(), [idx], (j, total) => setStatus(`Working... (${j}/${total})`));
+                        setStatus("Done!");
+                    }}>{label}</MenuItem>
+                ))}
+                <MenuItem onClick={async () => {
+                    await replaceCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
+                    setStatus("Done!");
+                }}>All</MenuItem>
+            </MenuGroup>
+            <MenuGroup label="Reset">
+                {IMAGE_TYPE_LABELS.map((label, idx) => (
+                    <MenuItem key={idx} onClick={() => {
+                        resetCollectionImages(getCurrentColl(), [idx], (j, total) => setStatus(`Working... (${j}/${total})`));
+                        setStatus("Done!");
+                    }}>{label}</MenuItem>
+                ))}
+                <MenuItem onClick={() => {
+                    resetCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
+                    setStatus("Done!");
+                }}>All</MenuItem>
+            </MenuGroup>
+        </>
+    );
+}
+
 async function renderHome(popup: any) {
     const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
     const oldGridButton = headerDiv.querySelector('button.easygrid-button');
@@ -52,38 +82,7 @@ async function renderHome(popup: any) {
                 const collName = collection.m_strName;
                 return (
                     <MenuGroup key={collId} label={collName}>
-                        <MenuGroup label="Replace">
-                            {IMAGE_TYPE_LABELS.map((label, idx) => (
-                                <MenuItem key={idx} onClick={async () => {
-                                    const currentColl = collectionStore.GetCollection(collId);
-                                    await replaceCollectionImages(currentColl, [idx], (j, total) => setStatus(`Working... (${j}/${total})`));
-                                    setStatus("Done!");
-                                    console.log(`[steam-easygrid 4] ${label} replaced for`, collId);
-                                }}>{label}</MenuItem>
-                            ))}
-                            <MenuItem onClick={async () => {
-                                const currentColl = collectionStore.GetCollection(collId);
-                                await replaceCollectionImages(currentColl, ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
-                                setStatus("Done!");
-                                console.log("[steam-easygrid 4] All image types replaced for", collId);
-                            }}>All</MenuItem>
-                        </MenuGroup>
-                        <MenuGroup label="Reset">
-                            {IMAGE_TYPE_LABELS.map((label, idx) => (
-                                <MenuItem key={idx} onClick={() => {
-                                    const currentColl = collectionStore.GetCollection(collId);
-                                    resetCollectionImages(currentColl, [idx], (j, total) => setStatus(`Working... (${j}/${total})`));
-                                    setStatus("Done!");
-                                    console.log(`[steam-easygrid 4] ${label} cleared for`, collId);
-                                }}>{label}</MenuItem>
-                            ))}
-                            <MenuItem onClick={() => {
-                                const currentColl = collectionStore.GetCollection(collId);
-                                resetCollectionImages(currentColl, ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
-                                setStatus("Done!");
-                                console.log("[steam-easygrid 4] All image types cleared for", collId);
-                            }}>All</MenuItem>
-                        </MenuGroup>
+                        {buildReplaceResetMenuGroups(() => collectionStore.GetCollection(collId), setStatus)}
                     </MenuGroup>
                 );
             });
@@ -101,92 +100,37 @@ async function renderHome(popup: any) {
 
 async function renderCollection(popup: any) {
     const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
-    const oldGridDropdown = collOptionsDiv.querySelector('div.easygrid-dropdown');
+    const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
 
-    if (!oldGridDropdown && pluginConfig.collection_button) {
-        const gridDropdown = popup.m_popup.document.createElement("div");
-        gridDropdown.className = "easygrid-dropdown";
+    if (!oldGridButton && pluginConfig.collection_button) {
+        const gridButton = popup.m_popup.document.createElement("div");
+        const gridButtonRoot = createRoot(gridButton);
+        gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
+        collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild!.nextSibling);
 
-        type BulkAction = { mode: 'replace' | 'reset'; imgTypes: number[] };
+        gridButton.addEventListener("click", async () => {
+            const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
+            const getCurrentColl = () => collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
 
-        const bulkActionsByKey: Record<string, BulkAction> = {
-            ...Object.fromEntries(IMAGE_TYPE_LABELS.map((_, idx) => [`replace_${idx}`, { mode: 'replace' as const, imgTypes: [idx] }])),
-            replace_all: { mode: 'replace', imgTypes: ALL_IMAGE_TYPES },
-            ...Object.fromEntries(IMAGE_TYPE_LABELS.map((_, idx) => [`reset_${idx}`, { mode: 'reset' as const, imgTypes: [idx] }])),
-            reset_all: { mode: 'reset', imgTypes: ALL_IMAGE_TYPES },
-        };
-
-        const DropdownComponent = () => {
-            const sortModule = findModule(m => m.SortingDropDown && m.SortingDropDownLabel) || {};
-            const [statusText, setStatusText] = useState("EasyGrid");
-            const [selected, setSelected] = useState('replace_0');
-
-            const options = [
-                {
-                    label: 'Replace',
-                    options: [
-                        ...IMAGE_TYPE_LABELS.map((label, idx) => ({ label, data: `replace_${idx}` })),
-                        { label: 'All', data: 'replace_all' },
-                    ],
-                },
-                {
-                    label: 'Reset',
-                    options: [
-                        ...IMAGE_TYPE_LABELS.map((label, idx) => ({ label, data: `reset_${idx}` })),
-                        { label: 'All', data: 'reset_all' },
-                    ],
-                },
-            ];
-
-            const handleChange = async (option: { data: string; label: string }) => {
-                const key = option.data;
-                setSelected(key);
-                const bulkAction = bulkActionsByKey[key];
-                if (!bulkAction) return;
-
-                const currentColl = collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-                const collLabel = uiStore.currentGameListSelection.strCollectionId;
-
-                if (bulkAction.mode === 'replace') {
-                    await replaceCollectionImages(currentColl, bulkAction.imgTypes, (j, total) => setStatusText(`Working... (${j}/${total})`));
-                    setStatusText("Done!");
-                    console.log("[steam-easygrid 4] Images replaced for", collLabel);
-                } else {
-                    resetCollectionImages(currentColl, bulkAction.imgTypes, (j, total) => setStatusText(`Working... (${j}/${total})`));
-                    setStatusText("Done!");
-                    console.log("[steam-easygrid 4] Images cleared for", collLabel);
-                }
-
-                setTimeout(() => setStatusText("EasyGrid"), 3000);
-            };
-
-            return (
-                <div className={sortModule.SortingDropDown} tabIndex={-1}>
-                    <div className={sortModule.SortingDropDownLabel}>
-                        {statusText}
-                    </div>
-                    <Dropdown
-                        rgOptions={options}
-                        selectedOption={selected}
-                        onChange={handleChange}
-                    />
-                </div>
+            showContextMenu(
+                <Menu label="EasyGrid Options">
+                    {buildReplaceResetMenuGroups(getCurrentColl, setStatus)}
+                </Menu>,
+                gridButton,
+                {bForcePopup: true}
             );
-        };
-
-        const gridDropdownRoot = createRoot(gridDropdown);
-        gridDropdownRoot.render(<DropdownComponent />);
-
-        collOptionsDiv.insertBefore(gridDropdown, collOptionsDiv.firstChild!.nextSibling);
+        });
     }
 }
 
+const isPropertiesMenuItem = (node: any): boolean => {
+    const selected = node?.props?.onSelected?.toString?.() ?? node?.onSelected?.toString?.() ?? '';
+    return selected.includes('AppProperties');
+};
+
 const isAppContextMenu = (items: any): boolean => {
     if (!Array.isArray(items) || !items.length) return false;
-    return Boolean(findInReactTree(items, (node: any) => {
-        const selected = node?.props?.onSelected?.toString?.() ?? node?.onSelected?.toString?.() ?? '';
-        return selected.includes('AppProperties') || Boolean(node?.app?.appid);
-    }));
+    return Boolean(findInReactTree(items, (node: any) => isPropertiesMenuItem(node) || Boolean(node?.app?.appid)));
 };
 
 const findContextMenuAppId = (tree: any, owner: any): number | undefined => {
@@ -197,16 +141,27 @@ const findContextMenuAppId = (tree: any, owner: any): number | undefined => {
     return found?.app?.appid ?? found?.overview?.appid;
 };
 
-const insertEasyGridMenuItem = (menuItems: any[], appid: number) => {
-    if (!appid || menuItems.find((item: any) => item?.key === 'easygrid-group')) return;
+const findPropertiesIndex = (menuItems: any[]): number => {
+    return menuItems.findIndex((item: any) => Boolean(findInReactTree([item], isPropertiesMenuItem)));
+};
+
+const insertEasyGridMenuItem = (menuItems: any[], appid: number): boolean => {
+    if (!appid || menuItems.find((item: any) => item?.key === 'easygrid-group')) return false;
     const isExcluded = getExcludedAppIDs().includes(appid);
-    menuItems.push(
+    const group = (
         <MenuGroup key="easygrid-group" label="Easy SteamGrid">
             <MenuItem onClick={() => { void openEasyGridForApp(appid); }}>Open</MenuItem>
             <MenuItem onClick={() => { void autoReplaceForApp(appid); }}>Auto Replace</MenuItem>
             <MenuItem selected={isExcluded} onClick={() => toggleAppExcludedFromReplacement(appid)}>Exclude from replacement</MenuItem>
         </MenuGroup>
     );
+    const propertiesIndex = findPropertiesIndex(menuItems);
+    if (propertiesIndex === -1) {
+        menuItems.push(group);
+    } else {
+        menuItems.splice(propertiesIndex, 0, group);
+    }
+    return true;
 };
 
 export function patchLibraryContextMenu(): { unpatch: () => void } {
@@ -223,22 +178,30 @@ export function patchLibraryContextMenu(): { unpatch: () => void } {
 
     let innerPatch: any = null;
     const outerPatch = afterPatch(LibraryContextMenu.prototype, 'render', (_args: any[], rendered: any) => {
+        console.log("[easygrid-debug] outer render fired, innerPatch already set:", Boolean(innerPatch));
         if (!innerPatch) {
             innerPatch = afterPatch(rendered, 'type', (_typeArgs: any[], typeRet: any) => {
+                console.log("[easygrid-debug] type wrap fired, has nested render:", Boolean(typeRet?.type?.prototype?.render));
                 if (typeRet?.type?.prototype?.render) {
                     afterPatch(typeRet.type.prototype, 'render', (_renderArgs: any[], renderRet: any) => {
                         const menuItems = renderRet?.props?.children?.[0];
-                        if (isAppContextMenu(menuItems)) {
-                            const appid = findContextMenuAppId(renderRet, renderRet?._owner);
-                            if (appid) insertEasyGridMenuItem(menuItems, appid);
+                        const isAppMenu = isAppContextMenu(menuItems);
+                        const appid = isAppMenu ? findContextMenuAppId(renderRet, renderRet?._owner) : undefined;
+                        console.log("[easygrid-debug] nested render fired, isAppMenu:", isAppMenu, "appid:", appid, "menuItems length:", menuItems?.length);
+                        if (appid) {
+                            const inserted = insertEasyGridMenuItem(menuItems, appid);
+                            console.log("[easygrid-debug] nested render insert result:", inserted);
                         }
                         return renderRet;
                     });
                     afterPatch(typeRet.type.prototype, 'shouldComponentUpdate', ([nextProps]: any[], shouldUpdate: any) => {
                         const menuItems = nextProps?.children;
-                        if (isAppContextMenu(menuItems)) {
-                            const appid = findContextMenuAppId(nextProps, undefined);
-                            if (appid) insertEasyGridMenuItem(menuItems, appid);
+                        const isAppMenu = isAppContextMenu(menuItems);
+                        const appid = isAppMenu ? findContextMenuAppId(nextProps, undefined) : undefined;
+                        console.log("[easygrid-debug] shouldComponentUpdate fired, isAppMenu:", isAppMenu, "appid:", appid, "original shouldUpdate:", shouldUpdate);
+                        if (appid && insertEasyGridMenuItem(menuItems, appid)) {
+                            console.log("[easygrid-debug] shouldComponentUpdate forcing render true");
+                            return true;
                         }
                         return shouldUpdate;
                     });
@@ -247,7 +210,10 @@ export function patchLibraryContextMenu(): { unpatch: () => void } {
             });
         } else if (Array.isArray(rendered?.props?.children)) {
             const appid = findContextMenuAppId(rendered, rendered?._owner);
+            console.log("[easygrid-debug] outer fallback branch fired, appid:", appid);
             if (appid) insertEasyGridMenuItem(rendered.props.children, appid);
+        } else {
+            console.log("[easygrid-debug] outer render: innerPatch set, but rendered.props.children not an array:", rendered?.props?.children);
         }
 
         return rendered;
@@ -261,10 +227,6 @@ export function patchLibraryContextMenu(): { unpatch: () => void } {
     };
 }
 
-// User-supplied CSS from their own fluenty theme edits — these class names are stable per Steam client
-// build (same as the ones used elsewhere in this file), not random per-machine. Fixes the hero image only
-// filling ~1/3 of the header's width on ultrawide/4K monitors, since it's a pure CSS rule rather than
-// per-element JS styling, it applies to matching elements automatically without needing reapplication.
 function injectHeroExpandCss(doc: Document) {
     if (doc.getElementById("easygrid-hero-expand-css")) return;
     const style = doc.createElement("style");
