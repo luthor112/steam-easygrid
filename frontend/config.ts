@@ -26,6 +26,7 @@ export type PluginConfig = {
     collection_button: boolean,
     disable_webp: boolean,
     reapply_app_page: boolean,
+    hide_type_settings: boolean,
     grids_config: ImageTypeSubConfig,
     wide_grids_config: ImageTypeSubConfig,
     heroes_config: ImageTypeSubConfig,
@@ -50,6 +51,7 @@ export var pluginConfig: PluginConfig = {
     collection_button: true,
     disable_webp: true,
     reapply_app_page: true,
+    hide_type_settings: false,
     grids_config: {
         nsfw: "false",
         humor: "any",

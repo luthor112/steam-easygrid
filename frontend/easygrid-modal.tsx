@@ -1,6 +1,6 @@
 import { SidebarNavigation, ModalRoot, findModuleExport, routerHook, EUIMode, DialogButton, TextField, Focusable, Navigation, showModal } from "@steambrew/client";
 import { clear_icon } from "./backend";
-import { pluginConfig, gameIDOverrides, searchCache, imgTypeSettingsMap, ICON_IMG_TYPE, SetCustomizationState } from "./config";
+import { pluginConfig, gameIDOverrides, searchCache, imgTypeSettingsMap, ICON_IMG_TYPE, SetCustomizationState, persistConfig } from "./config";
 import { getSteamGridDBId, getSearchData, applyIconFromUrl, getImageData, getImageExt } from "./api";
 import { ImageSearchSetting, SingleSetting, GlobalSettingsPage } from "./settings-components";
 import React, { useState, useEffect, useRef } from "react";
@@ -68,6 +68,14 @@ function getEasyGridComponent(windowRef: Window) {
         const [thumbnailList, setThumbnailList] = useState([]);
         const [sgdbIdInput, setSteamGridDBIdInput] = useState<string>("");
         const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+        const [settingsHidden, setSettingsHidden] = useState(pluginConfig.hide_type_settings);
+
+        const ToggleSettingsHidden = () => {
+            const next = !settingsHidden;
+            setSettingsHidden(next);
+            pluginConfig.hide_type_settings = next;
+            persistConfig();
+        };
 
         const GetCurrentSettings = async () => {
             const id = await getSteamGridDBId(props.appid);
@@ -173,12 +181,15 @@ function getEasyGridComponent(windowRef: Window) {
                         <div style={{width: "150px", flexShrink: 0}}><TextField value={sgdbIdInput} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSteamGridDBIdInput(e.currentTarget.value)} mustBeNumeric={true} /></div>
                         <DialogButton style={{width: "120px", flexShrink: 0}} onClick={SetSteamGridDBIdOverride}>Set SGDB ID</DialogButton>
                         <DialogButton style={{width: "120px", flexShrink: 0}} onClick={ClearSteamGridDBIdOverride}>Clear SGDB ID</DialogButton>
+                        <DialogButton style={{width: "120px", flexShrink: 0}} onClick={ToggleSettingsHidden}>{settingsHidden ? "Show Settings" : "Hide Settings"}</DialogButton>
                     </Focusable>
                     <br/>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '4px 12px' }}>
-                        <ImageSearchSetting name={typeSettings.configKey} label={typeSettings.label} onSaved={GetCurrentSettings} useTooltip hideTypePrefix />
-                        <SingleSetting name={typeSettings.widthMultKey} type="num" label="Width Scale" description="Scale preview images on the GUI" onSaved={GetCurrentSettings} useTooltip />
-                    </div>
+                    {!settingsHidden && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '4px 12px' }}>
+                            <ImageSearchSetting name={typeSettings.configKey} label={typeSettings.label} onSaved={GetCurrentSettings} useTooltip hideTypePrefix />
+                            <SingleSetting name={typeSettings.widthMultKey} type="num" label="Width Scale" description="Scale preview images on the GUI" onSaved={GetCurrentSettings} useTooltip />
+                        </div>
+                    )}
                 </div>
                 <Focusable style={containerStyle} flow-children="grid">
                     {thumbnailList.map((thumbData, index) => {

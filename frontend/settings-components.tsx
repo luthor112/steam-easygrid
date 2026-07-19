@@ -275,6 +275,7 @@ const GlobalSettingsFields = (props: GlobalSettingsFieldsProps) => (
         <SingleSetting name="collection_button" type="bool" label="Show SGDB button" description="Show SGDB button for Collections" useTooltip={props.useTooltip} />
         <SingleSetting name="disable_webp" type="bool" label="Disable WEBP support" description="Avoids crashes for some users" useTooltip={props.useTooltip} />
         <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" useTooltip={props.useTooltip} />
+        <SingleSetting name="hide_type_settings" type="bool" label="Hide per-type filter settings" description="Hide the filter settings block above the image grid on each tab" useTooltip={props.useTooltip} />
     </>
 );
 
