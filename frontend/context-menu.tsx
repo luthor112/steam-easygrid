@@ -99,14 +99,17 @@ async function renderHome(popup: any) {
     }
 }
 
+let homeObserver: MutationObserver | undefined;
+
 async function renderHomeAndObserve(popup: any) {
     await renderHome(popup);
 
+    homeObserver?.disconnect();
     const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
-    const headerObserver = new MutationObserver(async () => {
+    homeObserver = new MutationObserver(async () => {
         await renderHome(popup);
     });
-    headerObserver.observe(headerDiv.parentNode!, { subtree: true, childList: true });
+    homeObserver.observe(headerDiv.parentNode!, { subtree: true, childList: true });
 }
 
 async function renderCollection(popup: any) {
@@ -135,14 +138,17 @@ async function renderCollection(popup: any) {
     }
 }
 
+let collectionObserver: MutationObserver | undefined;
+
 async function renderCollectionAndObserve(popup: any) {
     await renderCollection(popup);
 
+    collectionObserver?.disconnect();
     const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
-    const collOptionsObserver = new MutationObserver(async () => {
+    collectionObserver = new MutationObserver(async () => {
         await renderCollection(popup);
     });
-    collOptionsObserver.observe(collOptionsDiv.parentNode!, { subtree: true, childList: true });
+    collectionObserver.observe(collOptionsDiv.parentNode!, { subtree: true, childList: true });
 }
 
 const isPropertiesMenuItem = (node: any): boolean => {
@@ -200,30 +206,24 @@ export function patchLibraryContextMenu(): { unpatch: () => void } {
 
     let innerPatch: any = null;
     const outerPatch = afterPatch(LibraryContextMenu.prototype, 'render', (_args: any[], rendered: any) => {
-        console.log("[easygrid-debug] outer render fired, innerPatch already set:", Boolean(innerPatch));
         if (!innerPatch) {
             innerPatch = afterPatch(rendered, 'type', (_typeArgs: any[], typeRet: any) => {
-                console.log("[easygrid-debug] type wrap fired, has nested render:", Boolean(typeRet?.type?.prototype?.render));
                 if (typeRet?.type?.prototype?.render) {
                     afterPatch(typeRet.type.prototype, 'render', (_renderArgs: any[], renderRet: any) => {
                         const menuItems = renderRet?.props?.children?.[0];
-                        const isAppMenu = isAppContextMenu(menuItems);
-                        const appid = isAppMenu ? findContextMenuAppId(renderRet, renderRet?._owner) : undefined;
-                        console.log("[easygrid-debug] nested render fired, isAppMenu:", isAppMenu, "appid:", appid, "menuItems length:", menuItems?.length);
-                        if (appid) {
-                            const inserted = insertEasyGridMenuItem(menuItems, appid);
-                            console.log("[easygrid-debug] nested render insert result:", inserted);
+                        if (isAppContextMenu(menuItems)) {
+                            const appid = findContextMenuAppId(renderRet, renderRet?._owner);
+                            if (appid) insertEasyGridMenuItem(menuItems, appid);
                         }
                         return renderRet;
                     });
                     afterPatch(typeRet.type.prototype, 'shouldComponentUpdate', ([nextProps]: any[], shouldUpdate: any) => {
                         const menuItems = nextProps?.children;
-                        const isAppMenu = isAppContextMenu(menuItems);
-                        const appid = isAppMenu ? findContextMenuAppId(nextProps, undefined) : undefined;
-                        console.log("[easygrid-debug] shouldComponentUpdate fired, isAppMenu:", isAppMenu, "appid:", appid, "original shouldUpdate:", shouldUpdate);
-                        if (appid && insertEasyGridMenuItem(menuItems, appid)) {
-                            console.log("[easygrid-debug] shouldComponentUpdate forcing render true");
-                            return true;
+                        if (isAppContextMenu(menuItems)) {
+                            const appid = findContextMenuAppId(nextProps, undefined);
+                            if (appid && insertEasyGridMenuItem(menuItems, appid)) {
+                                return true;
+                            }
                         }
                         return shouldUpdate;
                     });
@@ -232,10 +232,7 @@ export function patchLibraryContextMenu(): { unpatch: () => void } {
             });
         } else if (Array.isArray(rendered?.props?.children)) {
             const appid = findContextMenuAppId(rendered, rendered?._owner);
-            console.log("[easygrid-debug] outer fallback branch fired, appid:", appid);
             if (appid) insertEasyGridMenuItem(rendered.props.children, appid);
-        } else {
-            console.log("[easygrid-debug] outer render: innerPatch set, but rendered.props.children not an array:", rendered?.props?.children);
         }
 
         return rendered;
@@ -263,6 +260,8 @@ function injectHeroExpandCss(doc: Document) {
     `;
     doc.head.appendChild(style);
 }
+
+let appObserver: MutationObserver | undefined;
 
 async function renderApp(popup: any) {
     const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
@@ -301,13 +300,14 @@ async function renderAppAndObserve(popup: any) {
     await renderApp(popup);
 
     if (pluginConfig.reapply_app_page) {
+        appObserver?.disconnect();
         const topCapsuleDiv = await WaitForElement(`div.${findModule(e => e.TopCapsule).TopCapsule}`, popup.m_popup.document);
-        const topCapsuleObserver = new MutationObserver(async (mutationList: any, observer: any) => {
+        appObserver = new MutationObserver(async (mutationList: any, observer: any) => {
             void mutationList;
             void observer;
             await renderApp(popup);
         });
-        topCapsuleObserver.observe(topCapsuleDiv.parentNode!, { subtree: true, childList: true, attributes: true });
+        appObserver.observe(topCapsuleDiv.parentNode!, { subtree: true, childList: true });
     }
 }
 
