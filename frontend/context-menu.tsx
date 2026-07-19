@@ -67,11 +67,12 @@ function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text
 
 async function renderHome(popup: any) {
     const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
-    const oldGridButton = headerDiv.querySelector('button.easygrid-button');
+    const oldGridButton = headerDiv.querySelector('.easygrid-button');
     if (!oldGridButton && pluginConfig.collection_button) {
         const gridButton = popup.m_popup.document.createElement("div");
+        gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
+        gridButtonRoot.render(<DialogButton style={{width: "50px"}}>SGDB</DialogButton>);
         headerDiv.insertBefore(gridButton, headerDiv.firstChild!.nextSibling!.nextSibling);
 
         gridButton.addEventListener("click", async () => {
@@ -105,17 +106,18 @@ async function renderHomeAndObserve(popup: any) {
     const headerObserver = new MutationObserver(async () => {
         await renderHome(popup);
     });
-    headerObserver.observe(headerDiv.parentNode!, { subtree: true, childList: true, attributes: true });
+    headerObserver.observe(headerDiv.parentNode!, { subtree: true, childList: true });
 }
 
 async function renderCollection(popup: any) {
     const collOptionsDiv = await WaitForElement(`div.${findModule(e => e.CollectionOptions).CollectionOptions}`, popup.m_popup.document);
-    const oldGridButton = collOptionsDiv.querySelector('button.easygrid-button');
+    const oldGridButton = collOptionsDiv.querySelector('.easygrid-button');
 
     if (!oldGridButton && pluginConfig.collection_button) {
         const gridButton = popup.m_popup.document.createElement("div");
+        gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<DialogButton className="easygrid-button" style={{width: "50px"}}>SGDB</DialogButton>);
+        gridButtonRoot.render(<DialogButton style={{width: "50px"}}>SGDB</DialogButton>);
         collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild!.nextSibling);
 
         gridButton.addEventListener("click", async () => {
@@ -140,7 +142,7 @@ async function renderCollectionAndObserve(popup: any) {
     const collOptionsObserver = new MutationObserver(async () => {
         await renderCollection(popup);
     });
-    collOptionsObserver.observe(collOptionsDiv.parentNode!, { subtree: true, childList: true, attributes: true });
+    collOptionsObserver.observe(collOptionsDiv.parentNode!, { subtree: true, childList: true });
 }
 
 const isPropertiesMenuItem = (node: any): boolean => {
