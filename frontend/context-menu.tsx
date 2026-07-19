@@ -290,38 +290,40 @@ async function renderAppAndObserve(popup: any) {
 }
 
 export async function OnPopupCreation(popup: any) {
-    await sleep(10000);
-    if (popup.m_strName === "SP Desktop_uid0") {
-        setDesktopPopup(popup);
-
-        if (window.__easygrid_mwbm_hooked__) {
-            console.log("[steam-easygrid 4] finished-request already hooked, skipping duplicate registration");
-            return;
-        }
-
-        let mwbm = undefined;
-        while (!mwbm) {
-            console.log("[steam-easygrid 4] Waiting for MainWindowBrowserManager");
-            try {
-                mwbm = MainWindowBrowserManager;
-            } catch {
-                await sleep(100);
-            }
-        }
-
-        window.__easygrid_mwbm_hooked__ = true;
-        console.log("[steam-easygrid 4] Registering callback");
-        MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL: any, previousURL: any) => {
-            void currentURL;
-            void previousURL;
-
-            if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home") {
-                await renderHome(popup);
-            } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/")) {
-                await renderCollection(popup);
-            } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/app/")) {
-                await renderAppAndObserve(popup);
-            }
-        });
+    if (popup.m_strName !== "SP Desktop_uid0") {
+        return;
     }
+
+    await sleep(10000);
+    setDesktopPopup(popup);
+
+    if (window.__easygrid_mwbm_hooked__) {
+        console.log("[steam-easygrid 4] finished-request already hooked, skipping duplicate registration");
+        return;
+    }
+
+    let mwbm = undefined;
+    while (!mwbm) {
+        console.log("[steam-easygrid 4] Waiting for MainWindowBrowserManager");
+        try {
+            mwbm = MainWindowBrowserManager;
+        } catch {
+            await sleep(100);
+        }
+    }
+
+    window.__easygrid_mwbm_hooked__ = true;
+    console.log("[steam-easygrid 4] Registering callback");
+    MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL: any, previousURL: any) => {
+        void currentURL;
+        void previousURL;
+
+        if (MainWindowBrowserManager.m_lastLocation.pathname === "/library/home") {
+            await renderHome(popup);
+        } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/collection/")) {
+            await renderCollection(popup);
+        } else if (MainWindowBrowserManager.m_lastLocation.pathname.startsWith("/library/app/")) {
+            await renderAppAndObserve(popup);
+        }
+    });
 }
