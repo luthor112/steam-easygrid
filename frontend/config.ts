@@ -39,7 +39,7 @@ export type PluginConfig = {
     icons_width_mult: number
 };
 
-export var pluginConfig: PluginConfig = {
+const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
     api_key: "",
     display_name_fallback: true,
     replace_custom_images: true,
@@ -104,6 +104,8 @@ export var pluginConfig: PluginConfig = {
     icons_width_mult: 7
 };
 
+export var pluginConfig: PluginConfig = structuredClone(DEFAULT_PLUGIN_CONFIG);
+
 export const imgTypeSettingsMap: Record<number, { configKey: keyof PluginConfig; widthMultKey: NumKeys; label: string }> = {
     0: { configKey: "grids_config", widthMultKey: "grids_width_mult", label: "Grid" },
     1: { configKey: "heroes_config", widthMultKey: "heroes_width_mult", label: "Hero" },
@@ -157,8 +159,28 @@ export type CustomizationStates = Record<string, AppCustomizationState>;
 
 export var customizationStates: CustomizationStates = {};
 
+function sanitizeMultiValue(current: string, validOptions: string[]): string {
+    return current
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0 && validOptions.includes(s))
+        .join(",");
+}
+
+function sanitizeImageTypeConfigs() {
+    for (const { configKey } of Object.values(imgTypeSettingsMap)) {
+        const cfg = pluginConfig[configKey] as ImageTypeSubConfig;
+        const options = imageSearchOptionsByConfigKey[configKey as string];
+        cfg.types = sanitizeMultiValue(cfg.types, TYPE_OPTIONS);
+        cfg.mimes = sanitizeMultiValue(cfg.mimes, options.mimeOptions);
+        cfg.styles = sanitizeMultiValue(cfg.styles, options.styleOptions);
+    }
+}
+
 export function mergeStoredConfig(stored: Partial<PluginConfig>) {
     pluginConfig = { ...pluginConfig, ...stored };
+    sanitizeImageTypeConfigs();
+    persistConfig();
 }
 
 export function mergeStoredOverrides(stored: GameIDOverrides) {
@@ -183,6 +205,26 @@ export function safeParseStoredJSON(raw: string | null, label: string): any {
 export function persistConfig() {
     localStorage.setItem("luthor112.steam-easygrid.config", JSON.stringify(pluginConfig));
     searchCache = {};
+}
+
+export function resetImageTypeConfig(imgType: number) {
+    const { configKey, widthMultKey } = imgTypeSettingsMap[imgType];
+    (pluginConfig as any)[configKey] = structuredClone((DEFAULT_PLUGIN_CONFIG as any)[configKey]);
+    pluginConfig[widthMultKey] = DEFAULT_PLUGIN_CONFIG[widthMultKey];
+    persistConfig();
+}
+
+const GLOBAL_SETTINGS_KEYS: (keyof PluginConfig)[] = [
+    "display_name_fallback", "replace_custom_images", "appids_excluded_from_replacement",
+    "prioritize_animated", "prioritize_authors", "expand_headers", "expand_hero_image",
+    "collection_button", "disable_webp", "reapply_app_page", "hide_type_settings",
+];
+
+export function resetGlobalSettings() {
+    for (const key of GLOBAL_SETTINGS_KEYS) {
+        (pluginConfig as any)[key] = structuredClone((DEFAULT_PLUGIN_CONFIG as any)[key]);
+    }
+    persistConfig();
 }
 
 export function SetCustomizationState(appID: number, imgType: number, newState: boolean) {

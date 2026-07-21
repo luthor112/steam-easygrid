@@ -2,7 +2,7 @@ import { SidebarNavigation, ModalRoot, findModuleExport, routerHook, EUIMode, Di
 import { clear_icon } from "./backend";
 import { pluginConfig, gameIDOverrides, searchCache, imgTypeSettingsMap, ICON_IMG_TYPE, SetCustomizationState, persistConfig } from "./config";
 import { getSteamGridDBId, getSearchData, applyIconFromUrl, getImageData, getImageExt } from "./api";
-import { ImageSearchSetting, SingleSetting, GlobalSettingsPage } from "./settings-components";
+import { ImageSearchSetting, GlobalSettingsPage, useImageTypeReset } from "./settings-components";
 import React, { useState, useEffect, useRef } from "react";
 
 type GetEasyGridComponentProps = {
@@ -83,6 +83,8 @@ function getEasyGridComponent(windowRef: Window) {
             setSteamGridDBIdInput(id !== undefined ? id.toString() : "");
             setThumbnailList(await getSearchData(props.appid, props.imagetype));
         };
+
+        const [settingsResetVersion, resetTypeSettings] = useImageTypeReset(props.imagetype, GetCurrentSettings);
 
         const PurgeImageCache = async () => {
             console.log("[steam-easygrid 4] Purging cache and reloading...");
@@ -182,12 +184,12 @@ function getEasyGridComponent(windowRef: Window) {
                         <DialogButton style={{width: "120px", flexShrink: 0}} onClick={SetSteamGridDBIdOverride}>Set SGDB ID</DialogButton>
                         <DialogButton style={{width: "120px", flexShrink: 0}} onClick={ClearSteamGridDBIdOverride}>Clear SGDB ID</DialogButton>
                         <DialogButton style={{width: "120px", flexShrink: 0}} onClick={ToggleSettingsHidden}>{settingsHidden ? "Show Settings" : "Hide Settings"}</DialogButton>
+                        <DialogButton style={{width: "160px", flexShrink: 0}} onClick={resetTypeSettings}>Reset {typeSettings.label} Settings</DialogButton>
                     </Focusable>
                     <br/>
                     {!settingsHidden && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '4px 12px' }}>
-                            <ImageSearchSetting name={typeSettings.configKey} label={typeSettings.label} onSaved={GetCurrentSettings} useTooltip hideTypePrefix />
-                            <SingleSetting name={typeSettings.widthMultKey} type="num" label="Width Scale" description="Scale preview images on the GUI" onSaved={GetCurrentSettings} useTooltip />
+                            <ImageSearchSetting imgType={props.imagetype} label={typeSettings.label} resetVersion={settingsResetVersion} onSaved={GetCurrentSettings} useTooltip hideTypePrefix />
                         </div>
                     )}
                 </div>

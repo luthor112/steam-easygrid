@@ -1,8 +1,9 @@
-import { Field, TextField, Toggle, Dropdown, DialogCheckbox } from "@steambrew/client";
+import { Field, TextField, Toggle, Dropdown, DialogCheckbox, DialogButton } from "@steambrew/client";
 import { createPortal } from "react-dom";
 import React, { useState, useEffect, useRef } from "react";
 import {
-    pluginConfig, persistConfig, imageSearchOptionsByConfigKey, TYPE_OPTIONS,
+    pluginConfig, persistConfig, imageSearchOptionsByConfigKey, TYPE_OPTIONS, imgTypeSettingsMap,
+    resetImageTypeConfig, resetGlobalSettings,
     type PluginConfig, type ImageTypeSubConfig, type BoolKeys, type StringKeys, type NumKeys, type StringArrayKeys,
 } from "./config";
 
@@ -235,26 +236,40 @@ const MultiToggleSetting = (props: MultiToggleSettingProps) => {
 };
 
 type ImageSearchSettingProps = {
-    name: keyof PluginConfig
+    imgType: number;
     label: string;
+    resetVersion: number;
     onSaved?: () => void;
     useTooltip?: boolean;
     hideTypePrefix?: boolean;
 };
 
+export function useImageTypeReset(imgType: number, onSaved?: () => void): [number, () => void] {
+    const [resetVersion, setResetVersion] = useState(0);
+    const handleReset = () => {
+        resetImageTypeConfig(imgType);
+        setResetVersion((v) => v + 1);
+        onSaved?.();
+    };
+    return [resetVersion, handleReset];
+}
+
 export const ImageSearchSetting = (props: ImageSearchSettingProps) => {
-    const options = imageSearchOptionsByConfigKey[props.name];
+    const { configKey, widthMultKey } = imgTypeSettingsMap[props.imgType];
+    const options = imageSearchOptionsByConfigKey[configKey as string];
     const prefix = props.hideTypePrefix ? "" : `${props.label} :: `;
+
     return (
-        <>
-            <TriStateSetting parentname={props.name} fieldName="nsfw" label={`${prefix}NSFW`} onSaved={props.onSaved} useTooltip={props.useTooltip} />
-            <TriStateSetting parentname={props.name} fieldName="humor" label={`${prefix}Humor`} onSaved={props.onSaved} useTooltip={props.useTooltip} />
-            <TriStateSetting parentname={props.name} fieldName="epilepsy" label={`${prefix}Epilepsy`} onSaved={props.onSaved} useTooltip={props.useTooltip} />
-            <MultiToggleSetting parentname={props.name} fieldName="types" label={`${prefix}Types`} options={TYPE_OPTIONS} onSaved={props.onSaved} useTooltip={props.useTooltip} />
-            <MultiToggleSetting parentname={props.name} fieldName="mimes" label={`${prefix}Mimes`} options={options.mimeOptions} onSaved={props.onSaved} useTooltip={props.useTooltip} />
-            <MultiToggleSetting parentname={props.name} fieldName="styles" label={`${prefix}Styles`} options={options.styleOptions} onSaved={props.onSaved} useTooltip={props.useTooltip} />
-            <SingleSetting name="dimensions" parentname={props.name} type="textchild" label={`${prefix}Dimensions`} description="Comma separated" onSaved={props.onSaved} useTooltip={props.useTooltip} />
-        </>
+        <React.Fragment key={props.resetVersion}>
+            <TriStateSetting parentname={configKey} fieldName="nsfw" label={`${prefix}NSFW`} onSaved={props.onSaved} useTooltip={props.useTooltip} />
+            <TriStateSetting parentname={configKey} fieldName="humor" label={`${prefix}Humor`} onSaved={props.onSaved} useTooltip={props.useTooltip} />
+            <TriStateSetting parentname={configKey} fieldName="epilepsy" label={`${prefix}Epilepsy`} onSaved={props.onSaved} useTooltip={props.useTooltip} />
+            <MultiToggleSetting parentname={configKey} fieldName="types" label={`${prefix}Types`} options={TYPE_OPTIONS} onSaved={props.onSaved} useTooltip={props.useTooltip} />
+            <MultiToggleSetting parentname={configKey} fieldName="mimes" label={`${prefix}Mimes`} options={options.mimeOptions} onSaved={props.onSaved} useTooltip={props.useTooltip} />
+            <MultiToggleSetting parentname={configKey} fieldName="styles" label={`${prefix}Styles`} options={options.styleOptions} onSaved={props.onSaved} useTooltip={props.useTooltip} />
+            <SingleSetting name="dimensions" parentname={configKey} type="textchild" label={`${prefix}Dimensions`} description="Comma separated" onSaved={props.onSaved} useTooltip={props.useTooltip} />
+            <SingleSetting name={widthMultKey} type="num" label={props.hideTypePrefix ? "Width Scale" : `${props.label} :: Width Scale`} description="Scale preview images on the GUI" onSaved={props.onSaved} useTooltip={props.useTooltip} />
+        </React.Fragment>
     );
 }
 
@@ -262,37 +277,53 @@ type GlobalSettingsFieldsProps = {
     useTooltip?: boolean;
 };
 
-const GlobalSettingsFields = (props: GlobalSettingsFieldsProps) => (
-    <>
-        <SingleSetting name="api_key" type="text" label="API key" description="Your SteamGridDB API key" useTooltip={props.useTooltip} />
-        <SingleSetting name="display_name_fallback" type="bool" label="Search by name fallback" description="Fallback to searching by name if needed" useTooltip={props.useTooltip} />
-        <SingleSetting name="replace_custom_images" type="bool" label="Always replace custom Images" description="When replacing all grid images, replace custom set ones as well" useTooltip={props.useTooltip} />
-        <SingleSetting name="appids_excluded_from_replacement" type="text" label="Exclude APPIDs from replacement" description="When replacing all grid images, skip these apps (separate by semicolon)" useTooltip={props.useTooltip} />
-        <SingleSetting name="prioritize_animated" type="bool" label="Prioritize animated images" description="Prioritize animated images" useTooltip={props.useTooltip} />
-        <SingleSetting name="prioritize_authors" type="array" label="Prioritize Authors" description="Prioritize images by author (comma-separated, in order)" useTooltip={props.useTooltip} />
-        <SingleSetting name="expand_headers" type="text" label="Expand app header size" description="Set custom header height" useTooltip={props.useTooltip} />
-        <SingleSetting name="expand_hero_image" type="bool" label="Expand hero image" description="Make the hero image fill the header width instead of ~1/3 of it (helps on ultrawide/4K monitors)" useTooltip={props.useTooltip} />
-        <SingleSetting name="collection_button" type="bool" label="Show SGDB button" description="Show SGDB button for Collections" useTooltip={props.useTooltip} />
-        <SingleSetting name="disable_webp" type="bool" label="Disable WEBP support" description="Avoids crashes for some users" useTooltip={props.useTooltip} />
-        <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" useTooltip={props.useTooltip} />
-        <SingleSetting name="hide_type_settings" type="bool" label="Hide per-type filter settings" description="Hide the filter settings block above the image grid on each tab" useTooltip={props.useTooltip} />
-    </>
-);
+const GlobalSettingsFields = (props: GlobalSettingsFieldsProps) => {
+    const [resetVersion, setResetVersion] = useState(0);
+
+    const handleReset = () => {
+        resetGlobalSettings();
+        setResetVersion((v) => v + 1);
+    };
+
+    return (
+        <React.Fragment key={resetVersion}>
+            <DialogButton onClick={handleReset}>Reset Settings</DialogButton>
+            <SingleSetting name="api_key" type="text" label="API key" description="Your SteamGridDB API key" useTooltip={props.useTooltip} />
+            <SingleSetting name="display_name_fallback" type="bool" label="Search by name fallback" description="Fallback to searching by name if needed" useTooltip={props.useTooltip} />
+            <SingleSetting name="replace_custom_images" type="bool" label="Always replace custom Images" description="When replacing all grid images, replace custom set ones as well" useTooltip={props.useTooltip} />
+            <SingleSetting name="appids_excluded_from_replacement" type="text" label="Exclude APPIDs from replacement" description="When replacing all grid images, skip these apps (separate by semicolon)" useTooltip={props.useTooltip} />
+            <SingleSetting name="prioritize_animated" type="bool" label="Prioritize animated images" description="Prioritize animated images" useTooltip={props.useTooltip} />
+            <SingleSetting name="prioritize_authors" type="array" label="Prioritize Authors" description="Prioritize images by author (comma-separated, in order)" useTooltip={props.useTooltip} />
+            <SingleSetting name="expand_headers" type="text" label="Expand app header size" description="Set custom header height" useTooltip={props.useTooltip} />
+            <SingleSetting name="expand_hero_image" type="bool" label="Expand hero image" description="Make the hero image fill the header width instead of ~1/3 of it (helps on ultrawide/4K monitors)" useTooltip={props.useTooltip} />
+            <SingleSetting name="collection_button" type="bool" label="Show SGDB button" description="Show SGDB button for Collections" useTooltip={props.useTooltip} />
+            <SingleSetting name="disable_webp" type="bool" label="Disable WEBP support" description="Avoids crashes for some users" useTooltip={props.useTooltip} />
+            <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" useTooltip={props.useTooltip} />
+            <SingleSetting name="hide_type_settings" type="bool" label="Hide per-type filter settings" description="Hide the filter settings block above the image grid on each tab" useTooltip={props.useTooltip} />
+        </React.Fragment>
+    );
+};
 
 export const SettingsContent = () => {
+    const [gridsReset, resetGrids] = useImageTypeReset(0);
+    const [wideGridsReset, resetWideGrids] = useImageTypeReset(3);
+    const [heroesReset, resetHeroes] = useImageTypeReset(1);
+    const [logosReset, resetLogos] = useImageTypeReset(2);
+    const [iconsReset, resetIcons] = useImageTypeReset(4);
+
     return (
         <div>
             <GlobalSettingsFields/>
-            <ImageSearchSetting name="grids_config" label="Grids" />
-            <ImageSearchSetting name="wide_grids_config" label="Wide Grids" />
-            <ImageSearchSetting name="heroes_config" label="Heroes" />
-            <ImageSearchSetting name="logos_config" label="Logos" />
-            <ImageSearchSetting name="icons_config" label="Icons" />
-            <SingleSetting name="grids_width_mult" type="num" label="Grids :: Width Scale" description="Scale preview images on the GUI" />
-            <SingleSetting name="wide_grids_width_mult" type="num" label="Wide Grids :: Width Scale" description="Scale preview images on the GUI" />
-            <SingleSetting name="heroes_width_mult" type="num" label="Heroes :: Width Scale" description="Scale preview images on the GUI" />
-            <SingleSetting name="logos_width_mult" type="num" label="Logos :: Width Scale" description="Scale preview images on the GUI" />
-            <SingleSetting name="icons_width_mult" type="num" label="Icons :: Width Scale" description="Scale preview images on the GUI" />
+            <DialogButton onClick={resetGrids}>Reset Grids Settings</DialogButton>
+            <ImageSearchSetting imgType={0} label="Grids" resetVersion={gridsReset} />
+            <DialogButton onClick={resetWideGrids}>Reset Wide Grids Settings</DialogButton>
+            <ImageSearchSetting imgType={3} label="Wide Grids" resetVersion={wideGridsReset} />
+            <DialogButton onClick={resetHeroes}>Reset Heroes Settings</DialogButton>
+            <ImageSearchSetting imgType={1} label="Heroes" resetVersion={heroesReset} />
+            <DialogButton onClick={resetLogos}>Reset Logos Settings</DialogButton>
+            <ImageSearchSetting imgType={2} label="Logos" resetVersion={logosReset} />
+            <DialogButton onClick={resetIcons}>Reset Icons Settings</DialogButton>
+            <ImageSearchSetting imgType={4} label="Icons" resetVersion={iconsReset} />
         </div>
     );
 };
