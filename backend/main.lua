@@ -37,7 +37,11 @@ function call_api_backend(a_bearer, b_endpoint)
     end
 
     if response.status ~= 200 then
-        logger:error(string.format("Got HTTP %d", response.status))
+        if response.status == 401 then
+            logger:error(string.format("Got HTTP %d, did you make sure to set an API key in the Easy SteamGrid configuration?", response.status))
+        else
+            logger:error(string.format("Got HTTP %d", response.status))
+        end
         return string.format("{ \"http_status\": %d }", response.status)
     end
 
