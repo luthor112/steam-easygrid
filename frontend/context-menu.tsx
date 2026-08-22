@@ -1,7 +1,7 @@
 import { Millennium, Menu, MenuItem, MenuGroup, showContextMenu, DialogButton, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
 import { createRoot } from "react-dom/client";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
-import { applyFirstWorkingImage, autoReplaceForApp } from "./api";
+import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp } from "./api";
 import { openEasyGridForApp, openSGDBWindow, setDesktopPopup } from "./easygrid-modal";
 
 const WaitForElement = async (sel: string, parent = document) => [...(await Millennium.findElement(parent, sel))][0];
@@ -180,6 +180,7 @@ const insertEasyGridMenuItem = (menuItems: any[], appid: number): boolean => {
         <MenuGroup key="easygrid-group" label="Easy SteamGrid">
             <MenuItem onClick={() => { void openEasyGridForApp(appid); }}>Open</MenuItem>
             <MenuItem onClick={() => { void autoReplaceForApp(appid); }}>Auto Replace</MenuItem>
+            <MenuItem onClick={() => { void setSteamAssetsForApp(appid); }}>Set to Steam Assets</MenuItem>
             <MenuItem selected={isExcluded} onClick={() => toggleAppExcludedFromReplacement(appid)}>Exclude from replacement</MenuItem>
         </MenuGroup>
     );

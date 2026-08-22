@@ -252,3 +252,28 @@ export async function autoReplaceForApp(appid: number) {
     }
     console.log("[steam-easygrid 4] Images replaced for", appid);
 }
+
+export async function setSteamAssetsForApp(appid: number) {
+    const gameId = await getSteamGridDBId(appid);
+    if (!gameId) return false;
+
+    const realSteamIdResponse = await callAPI(`games/id/${gameId}?platformdata=steam`);
+    console.log(realSteamIdResponse);
+    if (realSteamIdResponse && realSteamIdResponse["data"]["external_platform_data"]["steam"].length > 0) {
+        const realSteamIdStr = realSteamIdResponse["data"]["external_platform_data"]["steam"][0]["id"];
+        console.log("[steam-easygrid 4] Real Steam ID:", realSteamIdStr);
+
+        const postfixes = ["library_600x900.jpg", "library_hero.jpg", "logo.png", "header.jpg"];
+        for (let j = 0; j < 4; j++) {
+            const imageData = await fetchEncodedImage(`https://steamcdn-a.akamaihd.net/steam/apps/${realSteamIdStr}/${postfixes[j]}`);
+            if (imageData) {
+                await SteamClient.Apps.ClearCustomArtworkForApp(appid, j);
+                SteamClient.Apps.SetCustomArtworkForApp(appid, imageData, getImageExtFromUrl(postfixes[j]), j);
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
