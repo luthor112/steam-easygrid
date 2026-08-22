@@ -6,6 +6,7 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 - Replace or reset grid images for all apps in a collection with ones from SteamGridDB
 - Switch the Background image (hero), Logo, Cover image (grid), Wide Cover image (wide grid) or Icon of an app with ones from SteamGridDB via a window opened by double-clicking the header
     - Or automatically switch all images of an app using the `SG` button
+    - Or switch them to the current official assets
 - Set custom height for the Background image (hero)
     - Good ones are e.g. `530px` or `1240px`
 
