@@ -4,7 +4,7 @@ import {
     customizationStates, mergeStoredCustomizationStates, safeParseStoredJSON,
     type PluginConfig, type GameIDOverrides, type CustomizationStates,
 } from "./config";
-import { patchLibraryContextMenu, OnPopupCreation } from "./context-menu";
+import { patchLibraryContextMenu, OnPopupCreation, replaceCollectionImages } from "./context-menu";
 import { EasyGridRouteContent } from "./easygrid-modal";
 import { SettingsContent } from "./settings-components";
 
@@ -47,6 +47,10 @@ export default definePlugin(async () => {
     if (!window.__easygrid_route_registered__) {
         window.__easygrid_route_registered__ = true;
         routerHook.addRoute('/easygrid', EasyGridRouteContent, { exact: true });
+    }
+
+    if (pluginConfig.auto_replace_grids) {
+        setTimeout(() => replaceCollectionImages(collectionStore.allAppsCollection, [0], (j, total) => console.log(`[steam-easygrid 4] Autoreplacing grids... (${j}/${total})`), false), 1000);
     }
 
     return {

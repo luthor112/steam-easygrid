@@ -9,14 +9,19 @@ const WaitForElement = async (sel: string, parent = document) => [...(await Mill
 const IMAGE_TYPE_LABELS = Object.values(imgTypeSettingsMap).map((t) => t.label);
 const ALL_IMAGE_TYPES = IMAGE_TYPE_LABELS.map((_, idx) => idx);
 
-async function replaceCollectionImages(currentColl: any, imgTypes: number[], onProgress: (current: number, total: number) => void) {
+export async function replaceCollectionImages(currentColl: any, imgTypes: number[], onProgress: (current: number, total: number) => void, forceReplaceCustomImagesOption: boolean | undefined = undefined) {
     const excludedAppIDs = getExcludedAppIDs();
+    let replaceCustomImages = pluginConfig.replace_custom_images;
+    if (forceReplaceCustomImagesOption != undefined) {
+        replaceCustomImages = forceReplaceCustomImagesOption;
+    }
+
     for (let j = 0; j < currentColl.allApps.length; j++) {
         onProgress(j, currentColl.allApps.length);
         const appid = currentColl.allApps[j].appid;
         if (excludedAppIDs.includes(appid)) continue;
         for (const imgType of imgTypes) {
-            if (!pluginConfig.replace_custom_images && GetCustomizationState(appid, imgType)) continue;
+            if (!replaceCustomImages && GetCustomizationState(appid, imgType)) continue;
             await applyFirstWorkingImage(appid, imgType);
         }
         delete searchCache[appid.toString()];

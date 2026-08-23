@@ -300,6 +300,7 @@ const GlobalSettingsFields = (props: GlobalSettingsFieldsProps) => {
             <SingleSetting name="disable_webp" type="bool" label="Disable WEBP support" description="Avoids crashes for some users" useTooltip={props.useTooltip} />
             <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" useTooltip={props.useTooltip} />
             <SingleSetting name="hide_type_settings" type="bool" label="Hide per-type filter settings" description="Hide the filter settings block above the image grid on each tab" useTooltip={props.useTooltip} />
+            <SingleSetting name="auto_replace_grids" type="bool" label="Auto check and replace grids" description="On startup, automatically try to apply grid images from SGDB to all applications not yet customized (not recommended for bigger libraries)" useTooltip={props.useTooltip} />
         </React.Fragment>
     );
 };

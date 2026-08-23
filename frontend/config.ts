@@ -27,6 +27,7 @@ export type PluginConfig = {
     disable_webp: boolean,
     reapply_app_page: boolean,
     hide_type_settings: boolean,
+    auto_replace_grids: boolean,
     grids_config: ImageTypeSubConfig,
     wide_grids_config: ImageTypeSubConfig,
     heroes_config: ImageTypeSubConfig,
@@ -52,6 +53,7 @@ const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
     disable_webp: true,
     reapply_app_page: true,
     hide_type_settings: false,
+    auto_replace_grids: false,
     grids_config: {
         nsfw: "false",
         humor: "any",
