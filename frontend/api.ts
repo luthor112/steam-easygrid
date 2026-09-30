@@ -1,21 +1,20 @@
 import { call_api_backend, download_image, get_image_chunk, cleanup_image, log_frontend, set_icon_from_url } from "./backend";
 import { pluginConfig, gameIDOverrides, searchCache, imgTypeDict, ICON_IMG_TYPE, SetCustomizationState, type ImageTypeSubConfig, type PluginConfig } from "./config";
 
-const CHUNK_SIZE_BYTES = 6 * 1024 * 1024;
-
 export async function fetchEncodedImage(imgURL: string): Promise<string | undefined> {
     const size = await download_image({ a_img_url: imgURL });
     if (!size) return undefined;
 
-    const numChunks = Math.ceil(size / CHUNK_SIZE_BYTES);
     const parts: string[] = [];
-    for (let i = 0; i < numChunks; i++) {
-        const chunk = await get_image_chunk({ a_img_url: imgURL, b_chunk_index: i });
+    let i = 0;
+    while (true) {
+        const rawChunk: string = await get_image_chunk({ a_img_url: imgURL, b_chunk_index: i });
+        const chunk = rawChunk.replace("\"", "").replace("\"", "");
         if (!chunk) {
-            await cleanup_image({ a_img_url: imgURL });
-            return undefined;
+            break;
         }
         parts.push(chunk);
+        i++;
     }
     await cleanup_image({ a_img_url: imgURL });
     return parts.join('') || undefined;

@@ -7,7 +7,7 @@ local icons = require("icons")
 local is_windows = package.config:sub(1, 1) == "\\"
 
 local img_cache = {}
-local CHUNK_SIZE = 6 * 1024 * 1024
+local CHUNK_SIZE = 5 * 1024 * 1024
 local download_counter = 0
 
 local function make_tmpfile()
@@ -86,18 +86,20 @@ function get_image_chunk(a_img_url, b_chunk_index)
         return ""
     end
 
-    local offset = b_chunk_index * CHUNK_SIZE
-    f:seek("set", offset)
-    local data = f:read(CHUNK_SIZE)
+    local data = f:read("*a")
     f:close()
 
-    if not data or #data == 0 then
+    local b64_full = utils.base64_encode(data)
+
+    local offset = b_chunk_index * CHUNK_SIZE
+    local b64 = b64_full:sub(offset + 1, offset + CHUNK_SIZE)
+
+    if #b64 == 0 then
         return ""
     end
 
-    local b64 = utils.base64_encode(data)
-    logger:info(string.format("Chunk %d: %d raw bytes → %d b64 chars", b_chunk_index, #data, #(b64 or "")))
-    return b64 or ""
+    logger:info(string.format("Chunk %d: %d b64 chars (total: %d)", b_chunk_index, #b64, #b64_full))
+    return b64
 end
 
 function cleanup_image(a_img_url)
