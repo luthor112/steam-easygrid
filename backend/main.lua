@@ -3,6 +3,7 @@ local millennium = require("millennium")
 local http = require("http")
 local utils = require("utils")
 local icons = require("icons")
+local fs = require("fs")
 
 local is_windows = package.config:sub(1, 1) == "\\"
 
@@ -141,6 +142,93 @@ end
 
 function clear_icon(a_appid)
     return icons.clear_icon(a_appid)
+end
+
+-- MISSING IMAGES
+
+-- Image types: 0 = grid, 1 = hero, 2 = logo, 3 = wide grid, 4 = icon
+local CUSTOM_SUFFIXES = { [0] = "p", [1] = "_hero", [2] = "_logo", [3] = "", [4] = "_icon" }
+
+local grid_stems = nil
+local grid_stems_time = 0
+
+local function get_grid_stems()
+    if grid_stems and os.time() - grid_stems_time < 10 then return grid_stems end
+    grid_stems = {}
+    local userdata_path = fs.join(millennium.steam_path(), "userdata")
+    if fs.exists(userdata_path) then
+        for _, user_entry in ipairs(fs.list(userdata_path) or {}) do
+            if user_entry.is_directory then
+                local grid_dir = fs.join(user_entry.path, "config", "grid")
+                if fs.exists(grid_dir) then
+                    for _, entry in ipairs(fs.list(grid_dir) or {}) do
+                        if entry.is_file then grid_stems[string.lower(fs.stem(entry.path))] = true end
+                    end
+                end
+            end
+        end
+    end
+    grid_stems_time = os.time()
+    return grid_stems
+end
+
+-- Official asset names, optionally followed by a language suffix (e.g. header_italian)
+local function official_type(stem)
+    local function is(base)
+        if stem == base then return true end
+        local lang = string.match(stem, "^" .. base .. "_(%a+)$")
+        return lang ~= nil and lang ~= "blur"
+    end
+    if is("library_600x900") or is("library_capsule") then return 0 end
+    if is("library_hero") then return 1 end
+    if is("logo") then return 2 end
+    if is("header") or is("library_header") then return 3 end
+    return nil
+end
+
+-- Real vertical capsules are JPEGs; for apps without one, Steam serves a generated
+-- placeholder (the header stretched over a blurred background) that is a PNG named .jpg
+local function is_png(path)
+    local f = io.open(path, "rb")
+    if not f then return false end
+    local head = f:read(4)
+    f:close()
+    return head == "\137PNG"
+end
+
+local function scan_official(dir, found, is_root)
+    for _, entry in ipairs(fs.list(dir) or {}) do
+        if entry.is_directory then
+            if is_root then scan_official(entry.path, found, false) end
+        elseif entry.is_file then
+            local stem = string.lower(fs.stem(entry.path))
+            local t = official_type(stem)
+            if t == 0 and is_png(entry.path) then
+                -- generated placeholder, treat the grid as missing
+            elseif t then
+                found[t] = true
+            elseif is_root and #stem == 40 and string.match(stem, "^%x+$") then
+                found[4] = true
+            end
+        end
+    end
+end
+
+-- Returns the missing image types of an app as a comma-separated string, e.g. "0,1,3"
+function get_missing_images(a_appid)
+    local appid = tostring(a_appid)
+    local found = {}
+
+    local app_cache_dir = fs.join(millennium.steam_path(), "appcache", "librarycache", appid)
+    if fs.exists(app_cache_dir) then scan_official(app_cache_dir, found, true) end
+
+    local stems = get_grid_stems()
+    local missing = {}
+    for t = 0, 4 do
+        if stems[appid .. CUSTOM_SUFFIXES[t]] then found[t] = true end
+        if not found[t] then table.insert(missing, tostring(t)) end
+    end
+    return table.concat(missing, ",")
 end
 
 -- PLUGIN MANAGEMENT

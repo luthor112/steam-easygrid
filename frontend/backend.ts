@@ -7,3 +7,4 @@ export const cleanup_image = callable<[{ a_img_url: string }], void>('cleanup_im
 export const log_frontend = callable<[{ msg: string }], void>('log_frontend');
 export const set_icon_from_url = callable<[{ a_appid: number, b_img_url: string, c_extension: string }], boolean>('set_icon_from_url');
 export const clear_icon = callable<[{ a_appid: number }], boolean>('clear_icon');
+export const get_missing_images = callable<[{ a_appid: number }], string>('get_missing_images');
