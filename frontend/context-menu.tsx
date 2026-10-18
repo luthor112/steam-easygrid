@@ -1,5 +1,6 @@
-import { Millennium, Menu, MenuItem, MenuGroup as SdkMenuGroup, showContextMenu, DialogButton, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
+import { Millennium, Menu, MenuItem, MenuGroup as SdkMenuGroup, showContextMenu, showModal, ConfirmModal, DialogButton, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
 import { createRoot } from "react-dom/client";
+import { useState, useEffect } from "react";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
 import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp } from "./api";
 import { openEasyGridForApp, openSGDBWindow, setDesktopPopup } from "./easygrid-modal";
@@ -21,6 +22,58 @@ const MenuGroup: typeof SdkMenuGroup = SdkMenuGroup ?? (() => {
 const IMAGE_TYPE_LABELS = Object.values(imgTypeSettingsMap).map((t) => t.label);
 const ALL_IMAGE_TYPES = IMAGE_TYPE_LABELS.map((_, idx) => idx);
 
+// While a run started from the SGDB menu is in progress, a Stop button is shown next to the SGDB button
+let runInProgress = false;
+let stopRequested = false;
+const runStateListeners = new Set<(running: boolean) => void>();
+
+function setRunInProgress(running: boolean) {
+    runInProgress = running;
+    runStateListeners.forEach((listener) => listener(running));
+}
+
+async function runStoppable(setStatus: (text: string) => void, job: (onProgress: (current: number, total: number) => void) => Promise<void>) {
+    if (runInProgress) return;
+    stopRequested = false;
+    setRunInProgress(true);
+    try {
+        await job((j, total) => setStatus(`Working... (${j}/${total})`));
+    } finally {
+        setRunInProgress(false);
+    }
+    showFinalStatus(setStatus, stopRequested ? "SGDB (stopped by user)" : "Done!");
+}
+
+// Back to the plain label after a few seconds, unless another run has started meanwhile
+function showFinalStatus(setStatus: (text: string) => void, text: string) {
+    setStatus(text);
+    setTimeout(() => { if (!runInProgress) setStatus("SGDB"); }, 5000);
+}
+
+function StopButton() {
+    const [running, setRunning] = useState(runInProgress);
+    const [stopping, setStopping] = useState(false);
+
+    useEffect(() => {
+        const listener = (value: boolean) => {
+            setRunning(value);
+            if (!value) setStopping(false);
+        };
+        runStateListeners.add(listener);
+        return () => { runStateListeners.delete(listener); };
+    }, []);
+
+    if (!running) return null;
+    return (
+        <div className="easygrid-stop-button" style={{marginLeft: "8px"}}>
+            <DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}} disabled={stopping} onClick={() => {
+                stopRequested = true;
+                setStopping(true);
+            }}>{stopping ? "Stopping..." : "Stop"}</DialogButton>
+        </div>
+    );
+}
+
 export async function replaceCollectionImages(currentColl: any, imgTypes: number[], onProgress: (current: number, total: number) => void, forceReplaceCustomImagesOption: boolean | undefined = undefined) {
     const excludedAppIDs = getExcludedAppIDs();
     let replaceCustomImages = pluginConfig.replace_custom_images;
@@ -29,6 +82,7 @@ export async function replaceCollectionImages(currentColl: any, imgTypes: number
     }
 
     for (let j = 0; j < currentColl.allApps.length; j++) {
+        if (stopRequested) break;
         onProgress(j, currentColl.allApps.length);
         const appid = currentColl.allApps[j].appid;
         if (excludedAppIDs.includes(appid)) continue;
@@ -40,24 +94,29 @@ export async function replaceCollectionImages(currentColl: any, imgTypes: number
     }
 }
 
+async function getMissingImageTypes(appid: number): Promise<number[] | undefined> {
+    try {
+        const missing = await get_missing_images({ a_appid: appid });
+        return String(missing || "").split(",").filter((s) => s !== "").map(Number).filter((t) => ALL_IMAGE_TYPES.includes(t));
+    } catch (err) {
+        console.log("[steam-easygrid 4] Could not check missing images for", appid, err);
+        return undefined;
+    }
+}
+
 // Only fills image types that have no official Steam art (ignoring Steam's generated
 // grid placeholders) and no custom image
 async function replaceMissingCollectionImages(currentColl: any, onProgress: (current: number, total: number) => void) {
     const excludedAppIDs = getExcludedAppIDs();
 
     for (let j = 0; j < currentColl.allApps.length; j++) {
+        if (stopRequested) break;
         onProgress(j, currentColl.allApps.length);
         const appid = currentColl.allApps[j].appid;
         if (excludedAppIDs.includes(appid)) continue;
 
-        let missingTypes: number[];
-        try {
-            const missing = await get_missing_images({ a_appid: appid });
-            missingTypes = String(missing || "").split(",").filter((s) => s !== "").map(Number).filter((t) => ALL_IMAGE_TYPES.includes(t));
-        } catch (err) {
-            console.log("[steam-easygrid 4] Could not check missing images for", appid, err);
-            continue;
-        }
+        const missingTypes = await getMissingImageTypes(appid);
+        if (!missingTypes) continue;
 
         for (const imgType of missingTypes) {
             try {
@@ -68,6 +127,41 @@ async function replaceMissingCollectionImages(currentColl: any, onProgress: (cur
         }
         if (missingTypes.length) delete searchCache[appid.toString()];
     }
+}
+
+// Counts what "Replace only the missing images" would fetch, without downloading anything
+async function checkMissingCollectionImages(currentColl: any, onProgress: (current: number, total: number) => void, parentWindow: Window | undefined) {
+    const excludedAppIDs = getExcludedAppIDs();
+    const missingCounts = ALL_IMAGE_TYPES.map(() => 0);
+    let checkedApps = 0;
+    let appsWithMissing = 0;
+
+    for (let j = 0; j < currentColl.allApps.length; j++) {
+        if (stopRequested) return;
+        onProgress(j, currentColl.allApps.length);
+        const appid = currentColl.allApps[j].appid;
+        if (excludedAppIDs.includes(appid)) continue;
+
+        const missingTypes = await getMissingImageTypes(appid);
+        if (!missingTypes) continue;
+        checkedApps++;
+        if (missingTypes.length) appsWithMissing++;
+        for (const imgType of missingTypes) missingCounts[imgType]++;
+    }
+
+    showModal(
+        <ConfirmModal
+            strTitle="Missing images"
+            strDescription={
+                <div>
+                    <div>{appsWithMissing} of {checkedApps} apps are missing at least one image:</div>
+                    {IMAGE_TYPE_LABELS.map((label, idx) => <div key={idx}>{label}: {missingCounts[idx]}</div>)}
+                </div>
+            }
+            bAlertDialog={true}
+        />,
+        parentWindow
+    );
 }
 
 function resetCollectionImages(currentColl: any, imgTypes: number[], onProgress: (current: number, total: number) => void) {
@@ -81,35 +175,27 @@ function resetCollectionImages(currentColl: any, imgTypes: number[], onProgress:
     }
 }
 
-function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text: string) => void) {
+function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text: string) => void, parentWindow?: Window) {
     return (
         <>
             <MenuGroup label="Replace">
                 {IMAGE_TYPE_LABELS.map((label, idx) => (
-                    <MenuItem key={idx} onClick={async () => {
-                        await replaceCollectionImages(getCurrentColl(), [idx], (j, total) => setStatus(`Working... (${j}/${total})`));
-                        setStatus("Done!");
-                    }}>{label}</MenuItem>
+                    <MenuItem key={idx} onClick={() => runStoppable(setStatus, (onProgress) => replaceCollectionImages(getCurrentColl(), [idx], onProgress))}>{label}</MenuItem>
                 ))}
-                <MenuItem onClick={async () => {
-                    await replaceCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
-                    setStatus("Done!");
-                }}>All</MenuItem>
-                <MenuItem onClick={async () => {
-                    await replaceMissingCollectionImages(getCurrentColl(), (j, total) => setStatus(`Working... (${j}/${total})`));
-                    setStatus("Done!");
-                }}>Replace only the missing images</MenuItem>
+                <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => replaceCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, onProgress))}>All</MenuItem>
+                <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => replaceMissingCollectionImages(getCurrentColl(), onProgress))}>Replace only the missing images</MenuItem>
+                <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => checkMissingCollectionImages(getCurrentColl(), onProgress, parentWindow))}>Check missing images</MenuItem>
             </MenuGroup>
             <MenuGroup label="Reset">
                 {IMAGE_TYPE_LABELS.map((label, idx) => (
                     <MenuItem key={idx} onClick={() => {
                         resetCollectionImages(getCurrentColl(), [idx], (j, total) => setStatus(`Working... (${j}/${total})`));
-                        setStatus("Done!");
+                        showFinalStatus(setStatus, "Done!");
                     }}>{label}</MenuItem>
                 ))}
                 <MenuItem onClick={() => {
                     resetCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
-                    setStatus("Done!");
+                    showFinalStatus(setStatus, "Done!");
                 }}>All</MenuItem>
             </MenuGroup>
         </>
@@ -124,24 +210,26 @@ async function renderHome(popup: any) {
         const gridButton = popup.m_popup.document.createElement("div");
         gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap"}}>SGDB</DialogButton>);
+        gridButtonRoot.render(<><DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}}>SGDB</DialogButton><StopButton/></>);
         if (getComputedStyle(addShelfRow).position === "static") (addShelfRow as HTMLElement).style.position = "relative";
-        gridButton.style.cssText = "position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1;";
+        gridButton.style.cssText = "position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1; display: flex; align-items: center;";
         addShelfRow.insertBefore(gridButton, addShelfRow.firstChild);
 
-        gridButton.addEventListener("click", async () => {
+        gridButton.addEventListener("click", async (event: MouseEvent) => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
+            // The menu stays closed during a run: the Stop button handles its own clicks
+            if (runInProgress || (event.target as HTMLElement).closest(".easygrid-stop-button")) return;
 
             const collectionMenuGroups = [
                 <MenuGroup key="easygrid-all-games" label="All Games">
-                    {buildReplaceResetMenuGroups(() => collectionStore.allAppsCollection, setStatus)}
+                    {buildReplaceResetMenuGroups(() => collectionStore.allAppsCollection, setStatus, popup.m_popup.window)}
                 </MenuGroup>,
                 ...collectionStore.userCollections.map((collection: any) => {
                     const collId = collection.m_strId;
                     const collName = collection.m_strName;
                     return (
                         <MenuGroup key={collId} label={collName}>
-                            {buildReplaceResetMenuGroups(() => collectionStore.GetCollection(collId), setStatus)}
+                            {buildReplaceResetMenuGroups(() => collectionStore.GetCollection(collId), setStatus, popup.m_popup.window)}
                         </MenuGroup>
                     );
                 }),
@@ -179,16 +267,19 @@ async function renderCollection(popup: any) {
         const gridButton = popup.m_popup.document.createElement("div");
         gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap"}}>SGDB</DialogButton>);
+        gridButtonRoot.render(<><DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}}>SGDB</DialogButton><StopButton/></>);
+        gridButton.style.cssText = "display: flex; align-items: center;";
         collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild!.nextSibling);
 
-        gridButton.addEventListener("click", async () => {
+        gridButton.addEventListener("click", async (event: MouseEvent) => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
             const getCurrentColl = () => collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+            // The menu stays closed during a run: the Stop button handles its own clicks
+            if (runInProgress || (event.target as HTMLElement).closest(".easygrid-stop-button")) return;
 
             showContextMenu(
                 <Menu label="EasyGrid Options">
-                    {buildReplaceResetMenuGroups(getCurrentColl, setStatus)}
+                    {buildReplaceResetMenuGroups(getCurrentColl, setStatus, popup.m_popup.window)}
                 </Menu>,
                 gridButton,
                 {bForcePopup: true}
