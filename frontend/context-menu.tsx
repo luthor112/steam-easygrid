@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
 import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp } from "./api";
 import { openEasyGridForApp, openSGDBWindow, setDesktopPopup } from "./easygrid-modal";
+import { get_missing_images } from "./backend";
 
 const WaitForElement = async (sel: string, parent = document) => [...(await Millennium.findElement(parent, sel))][0];
 
@@ -39,6 +40,36 @@ export async function replaceCollectionImages(currentColl: any, imgTypes: number
     }
 }
 
+// Only fills image types that have no official Steam art (ignoring Steam's generated
+// grid placeholders) and no custom image
+async function replaceMissingCollectionImages(currentColl: any, onProgress: (current: number, total: number) => void) {
+    const excludedAppIDs = getExcludedAppIDs();
+
+    for (let j = 0; j < currentColl.allApps.length; j++) {
+        onProgress(j, currentColl.allApps.length);
+        const appid = currentColl.allApps[j].appid;
+        if (excludedAppIDs.includes(appid)) continue;
+
+        let missingTypes: number[];
+        try {
+            const missing = await get_missing_images({ a_appid: appid });
+            missingTypes = String(missing || "").split(",").filter((s) => s !== "").map(Number).filter((t) => ALL_IMAGE_TYPES.includes(t));
+        } catch (err) {
+            console.log("[steam-easygrid 4] Could not check missing images for", appid, err);
+            continue;
+        }
+
+        for (const imgType of missingTypes) {
+            try {
+                await applyFirstWorkingImage(appid, imgType);
+            } catch (err) {
+                console.log("[steam-easygrid 4] Failed to apply image", appid, imgType, err);
+            }
+        }
+        if (missingTypes.length) delete searchCache[appid.toString()];
+    }
+}
+
 function resetCollectionImages(currentColl: any, imgTypes: number[], onProgress: (current: number, total: number) => void) {
     for (let j = 0; j < currentColl.allApps.length; j++) {
         onProgress(j, currentColl.allApps.length);
@@ -64,6 +95,10 @@ function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text
                     await replaceCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
                     setStatus("Done!");
                 }}>All</MenuItem>
+                <MenuItem onClick={async () => {
+                    await replaceMissingCollectionImages(getCurrentColl(), (j, total) => setStatus(`Working... (${j}/${total})`));
+                    setStatus("Done!");
+                }}>Replace only the missing images</MenuItem>
             </MenuGroup>
             <MenuGroup label="Reset">
                 {IMAGE_TYPE_LABELS.map((label, idx) => (
@@ -82,27 +117,35 @@ function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text
 }
 
 async function renderHome(popup: any) {
-    const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
-    const oldGridButton = headerDiv.querySelector('.easygrid-button');
+    // Placed on the left of the "Add shelf" row: the menu works on the whole library, not on the first shelf
+    const addShelfRow = await WaitForElement(`div.${findModule(e => e.AddShowcaseRow).AddShowcaseRow}`, popup.m_popup.document);
+    const oldGridButton = addShelfRow.querySelector('.easygrid-button');
     if (!oldGridButton && pluginConfig.collection_button) {
         const gridButton = popup.m_popup.document.createElement("div");
         gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<DialogButton style={{width: "50px"}}>SGDB</DialogButton>);
-        headerDiv.insertBefore(gridButton, headerDiv.firstChild!.nextSibling!.nextSibling);
+        gridButtonRoot.render(<DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap"}}>SGDB</DialogButton>);
+        if (getComputedStyle(addShelfRow).position === "static") (addShelfRow as HTMLElement).style.position = "relative";
+        gridButton.style.cssText = "position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1;";
+        addShelfRow.insertBefore(gridButton, addShelfRow.firstChild);
 
         gridButton.addEventListener("click", async () => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
 
-            const collectionMenuGroups = collectionStore.userCollections.map((collection: any) => {
-                const collId = collection.m_strId;
-                const collName = collection.m_strName;
-                return (
-                    <MenuGroup key={collId} label={collName}>
-                        {buildReplaceResetMenuGroups(() => collectionStore.GetCollection(collId), setStatus)}
-                    </MenuGroup>
-                );
-            });
+            const collectionMenuGroups = [
+                <MenuGroup key="easygrid-all-games" label="All Games">
+                    {buildReplaceResetMenuGroups(() => collectionStore.allAppsCollection, setStatus)}
+                </MenuGroup>,
+                ...collectionStore.userCollections.map((collection: any) => {
+                    const collId = collection.m_strId;
+                    const collName = collection.m_strName;
+                    return (
+                        <MenuGroup key={collId} label={collName}>
+                            {buildReplaceResetMenuGroups(() => collectionStore.GetCollection(collId), setStatus)}
+                        </MenuGroup>
+                    );
+                }),
+            ];
 
             showContextMenu(
                 <Menu label="EasyGrid Options">
@@ -121,11 +164,11 @@ async function renderHomeAndObserve(popup: any) {
     await renderHome(popup);
 
     homeObserver?.disconnect();
-    const headerDiv = await WaitForElement(`div.${findModule(e => e.ShowcaseHeader).ShowcaseHeader}`, popup.m_popup.document);
+    const addShelfRow = await WaitForElement(`div.${findModule(e => e.AddShowcaseRow).AddShowcaseRow}`, popup.m_popup.document);
     homeObserver = new MutationObserver(async () => {
         await renderHome(popup);
     });
-    homeObserver.observe(headerDiv.parentNode!, { subtree: true, childList: true });
+    homeObserver.observe(addShelfRow.parentNode!, { subtree: true, childList: true });
 }
 
 async function renderCollection(popup: any) {
@@ -136,7 +179,7 @@ async function renderCollection(popup: any) {
         const gridButton = popup.m_popup.document.createElement("div");
         gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<DialogButton style={{width: "50px"}}>SGDB</DialogButton>);
+        gridButtonRoot.render(<DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap"}}>SGDB</DialogButton>);
         collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild!.nextSibling);
 
         gridButton.addEventListener("click", async () => {
