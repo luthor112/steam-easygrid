@@ -1,4 +1,5 @@
-import { call_api_backend, download_image, get_image_chunk, cleanup_image, log_frontend, set_icon_from_url } from "./backend";
+import { call_api_backend, download_image, get_image_chunk, cleanup_image, log_frontend, set_icon_from_url, get_icon_path } from "./backend";
+import { refreshAppIconImages } from "./icon-refresh";
 import { pluginConfig, gameIDOverrides, searchCache, imgTypeDict, ICON_IMG_TYPE, SetCustomizationState, type ImageTypeSubConfig, type PluginConfig } from "./config";
 
 export async function fetchEncodedImage(imgURL: string): Promise<string | undefined> {
@@ -186,10 +187,41 @@ function getIconExtFromUrl(imgURL: string): string {
     return match ? match[1].toLowerCase() : 'png';
 }
 
-export async function applyIconFromUrl(appId: number, imgURL: string): Promise<boolean> {
+export function unquoteBackendString(raw: unknown): string {
+    const text = String(raw ?? "");
+    return text.length >= 2 && text.startsWith("\"") && text.endsWith("\"") ? text.slice(1, -1) : text;
+}
+
+const SHORTCUT_APP_TYPE = 1073741824;
+
+export function isShortcut(appId: number): boolean {
+    return appStore.GetAppOverviewByAppID(appId)?.app_type === SHORTCUT_APP_TYPE;
+}
+
+async function applyShortcutIcon(appId: number) {
+    if (!isShortcut(appId)) return;
+    const path = unquoteBackendString(await get_icon_path({ a_appid: appId })).replace(/\\\\/g, "/");
+    if (path) SteamClient.Apps.SetShortcutIcon(appId, path);
+}
+
+export function resetShortcutIcon(appId: number) {
+    if (isShortcut(appId)) SteamClient.Apps.SetShortcutIcon(appId, "");
+}
+
+export async function applyIconFromUrlWithReason(appId: number, imgURL: string): Promise<string> {
     const size = await download_image({ a_img_url: imgURL });
-    if (!size) return false;
-    return await set_icon_from_url({ a_appid: appId, b_img_url: imgURL, c_extension: getIconExtFromUrl(imgURL) });
+    if (!size) return "the icon could not be downloaded";
+
+    const reason = unquoteBackendString(await set_icon_from_url({ a_appid: appId, b_img_url: imgURL, c_extension: getIconExtFromUrl(imgURL) }));
+    if (reason === "") {
+        await applyShortcutIcon(appId);
+        refreshAppIconImages(appId);
+    }
+    return reason;
+}
+
+export async function applyIconFromUrl(appId: number, imgURL: string): Promise<boolean> {
+    return (await applyIconFromUrlWithReason(appId, imgURL)) === "";
 }
 
 export async function applyFirstWorkingImage(appId: number, imgType: number): Promise<boolean> {

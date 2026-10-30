@@ -1,7 +1,8 @@
 import { SidebarNavigation, ModalRoot, findModuleExport, routerHook, EUIMode, DialogButton, TextField, Focusable, Navigation, showModal, sleep } from "@steambrew/client";
 import { clear_icon } from "./backend";
+import { refreshAppIconImages } from "./icon-refresh";
 import { pluginConfig, gameIDOverrides, searchCache, imgTypeSettingsMap, ICON_IMG_TYPE, SetCustomizationState, persistConfig } from "./config";
-import { getSteamGridDBId, getSearchData, applyIconFromUrl, getImageData, getImageExt } from "./api";
+import { getSteamGridDBId, getSearchData, applyIconFromUrlWithReason, isShortcut, resetShortcutIcon, getImageData, getImageExt } from "./api";
 import { ImageSearchSetting, GlobalSettingsPage, useImageTypeReset } from "./settings-components";
 import React, { useState, useEffect, useRef } from "react";
 
@@ -54,14 +55,51 @@ function getEasyGridComponent(windowRef: Window) {
         };
 
         const statusStyle: React.CSSProperties = {
+            display: 'none',
             position: 'absolute',
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            color: 'darkgray',
-            fontSize: '24px',
+            width: 'calc(100% - 16px)',
+            boxSizing: 'border-box',
+            padding: '6px 8px',
+            borderRadius: '8px',
+            background: 'rgba(0, 0, 0, 0.8)',
+            textAlign: 'center',
             fontWeight: 'bold',
             pointerEvents: "none",
+        };
+
+        const STATUS_COLORS = { working: '#c8c8c8', done: '#7ee787', warning: '#ffb454', failed: '#ff7b72' };
+
+        const clearStatus = (el: HTMLElement | null | undefined) => {
+            if (!el) return;
+            el.replaceChildren();
+            el.style.display = 'none';
+        };
+
+        const showStatus = (el: HTMLElement | null | undefined, headline: string, color: string, detail?: string) => {
+            if (!el) return;
+            el.replaceChildren();
+
+            const headlineEl = el.ownerDocument.createElement('div');
+            headlineEl.textContent = headline;
+            headlineEl.style.fontSize = '18px';
+            headlineEl.style.color = color;
+            el.appendChild(headlineEl);
+
+            if (detail) {
+                const detailEl = el.ownerDocument.createElement('div');
+                detailEl.textContent = detail.charAt(0).toUpperCase() + detail.slice(1);
+                detailEl.style.fontSize = '12px';
+                detailEl.style.fontWeight = 'normal';
+                detailEl.style.color = '#e8e8e8';
+                detailEl.style.marginTop = '4px';
+                detailEl.style.overflowWrap = 'anywhere';
+                el.appendChild(detailEl);
+            }
+
+            el.style.display = 'block';
         };
 
         const [steamGridDBId, setSteamGridDBId] = useState<number>(-1);
@@ -113,18 +151,17 @@ function getEasyGridComponent(windowRef: Window) {
 
         const SetNewImage = async (index: number) => {
             console.log("[steam-easygrid 4] Setting image to:", index);
-            statusRefs.current.forEach(el => { if (el) el.innerText = ''; });
+            statusRefs.current.forEach(clearStatus);
             const statusEl = statusRefs.current[index];
-            if (statusEl) {
-                statusEl.innerText = "DOWNLOADING";
-                statusEl.style.color = 'darkgray';
-            }
+            showStatus(statusEl, "DOWNLOADING", STATUS_COLORS.working);
 
             let success: boolean;
+            let failureReason = "";
             if (props.imagetype === ICON_IMG_TYPE) {
                 const searchResults = await getSearchData(props.appid, props.imagetype);
                 const imgURL = searchResults?.[index]?.url;
-                success = imgURL ? await applyIconFromUrl(props.appid, imgURL) : false;
+                failureReason = imgURL ? await applyIconFromUrlWithReason(props.appid, imgURL) : "there is no icon to apply";
+                success = failureReason === "";
             } else {
                 const newImage = await getImageData(props.appid, props.imagetype, index);
                 success = !!newImage;
@@ -135,14 +172,12 @@ function getEasyGridComponent(windowRef: Window) {
                 }
             }
 
-            if (statusEl) {
-                if (success) {
-                    statusEl.innerText = "DONE";
-                    statusEl.style.color = 'darkgreen';
-                } else {
-                    statusEl.innerText = "FAILED";
-                    statusEl.style.color = 'darkred';
-                }
+            if (!success) {
+                showStatus(statusEl, "FAILED", STATUS_COLORS.failed, failureReason);
+            } else if (props.imagetype === ICON_IMG_TYPE && !isShortcut(props.appid) && !appStore.GetAppOverviewByAppID(props.appid)?.icon_hash) {
+                showStatus(statusEl, "SAVED", STATUS_COLORS.warning, "Steam may not show icons for this game");
+            } else {
+                showStatus(statusEl, "DONE", STATUS_COLORS.done);
             }
 
             if (success) {
@@ -153,7 +188,9 @@ function getEasyGridComponent(windowRef: Window) {
         const SetOriginalImage = async () => {
             console.log("[steam-easygrid 4] Resetting image...");
             if (props.imagetype === ICON_IMG_TYPE) {
+                resetShortcutIcon(props.appid);
                 await clear_icon({ a_appid: props.appid });
+                refreshAppIconImages(props.appid);
             } else {
                 SteamClient.Apps.ClearCustomArtworkForApp(props.appid, props.imagetype);
             }

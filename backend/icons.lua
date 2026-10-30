@@ -2,11 +2,11 @@ local millennium = require("millennium")
 local utils = require("utils")
 local fs = require("fs")
 local logger = require("logger")
+local ico = require("ico")
 
 local M = {}
 
 local BACKUP_SUFFIX = ".easygrid_orig"
-local PNG_SIGNATURE = "\137\80\78\71\13\10\26\10"
 
 local function steam_userdata_path()
     return fs.join(millennium.steam_path(), "userdata")
@@ -33,62 +33,21 @@ local function is_hashed_icon_file(entry)
         and (ext == ".jpg" or ext == ".jpeg" or ext == ".png" or ext == ".ico")
 end
 
-local function read_u16(bytes, offset)
-    local b1, b2 = string.byte(bytes, offset + 1, offset + 2)
-    return (b1 or 0) + (b2 or 0) * 256
-end
-
-local function read_u32(bytes, offset)
-    local b1, b2, b3, b4 = string.byte(bytes, offset + 1, offset + 4)
-    return (b1 or 0) + (b2 or 0) * 256 + (b3 or 0) * 65536 + (b4 or 0) * 16777216
-end
-
-local function extract_png_from_ico(bytes)
-    if #bytes < 6 then return nil end
-    if read_u16(bytes, 0) ~= 0 or read_u16(bytes, 2) ~= 1 then return nil end
-    local count = read_u16(bytes, 4)
-
-    local best_chunk = nil
-    local best_area = -1
-    for i = 0, count - 1 do
-        local entry_offset = 6 + i * 16
-        if entry_offset + 16 > #bytes then break end
-        local width = string.byte(bytes, entry_offset + 1) or 0
-        local height = string.byte(bytes, entry_offset + 2) or 0
-        if width == 0 then width = 256 end
-        if height == 0 then height = 256 end
-        local data_size = read_u32(bytes, entry_offset + 8)
-        local data_offset = read_u32(bytes, entry_offset + 12)
-
-        if data_size > 0 and data_offset + data_size <= #bytes then
-            local chunk = string.sub(bytes, data_offset + 1, data_offset + data_size)
-            if string.sub(chunk, 1, 8) == PNG_SIGNATURE then
-                local area = width * height
-                if area > best_area then
-                    best_area = area
-                    best_chunk = chunk
-                end
-            end
-        end
-    end
-
-    return best_chunk
-end
-
 ---Write icon bytes to every location Steam reads an app icon from.
 ---@param appid string|number
 ---@param bytes string raw file bytes (already downloaded)
 ---@param extension string file extension without the dot, e.g. "png" or "ico"
 ---@return boolean success
+---@return string? reason why the icon could not be written
 function M.write_icon(appid, bytes, extension)
     appid = tostring(appid)
     extension = tostring(extension or "png"):lower()
 
     if extension == "ico" then
-        local png_bytes = extract_png_from_ico(bytes)
+        local png_bytes, reason = ico.ico_to_png(bytes)
         if not png_bytes then
-            logger:error("write_icon: .ico has no embedded PNG frame, skipping appid " .. appid)
-            return false
+            logger:error("write_icon: could not convert .ico to PNG (" .. tostring(reason) .. "), skipping appid " .. appid)
+            return false, "could not convert this .ico (" .. tostring(reason) .. ")"
         end
         bytes = png_bytes
         extension = "png"
@@ -136,7 +95,10 @@ function M.write_icon(appid, bytes, extension)
         end
     end
 
-    return wrote_any
+    if not wrote_any then
+        return false, "found no place to write the icon to"
+    end
+    return true
 end
 
 ---Remove any custom icon set via write_icon and restore the original hashed
@@ -183,6 +145,31 @@ function M.clear_icon(appid)
     end
 
     return changed
+end
+
+---Path (with forward slashes) of the custom icon file saved for an app in a Steam user's grid folder
+---@param appid string|number
+---@return string path empty when there is none
+function M.get_icon_path(appid)
+    local base_name = tostring(appid) .. "_icon"
+
+    local userdata_path = steam_userdata_path()
+    if not fs.exists(userdata_path) then return "" end
+
+    for _, user_entry in ipairs(fs.list(userdata_path) or {}) do
+        if user_entry.is_directory then
+            local grid_dir = fs.join(user_entry.path, "config", "grid")
+            if fs.exists(grid_dir) then
+                for _, entry in ipairs(fs.list(grid_dir) or {}) do
+                    if entry.is_file and fs.stem(entry.path) == base_name then
+                        return (string.gsub(entry.path, "\\", "/"))
+                    end
+                end
+            end
+        end
+    end
+
+    return ""
 end
 
 return M

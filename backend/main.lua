@@ -121,27 +121,32 @@ function set_icon_from_url(a_appid, b_img_url, c_extension)
     local tmp_path = img_cache[b_img_url]
     if not tmp_path then
         logger:error("set_icon_from_url: no cached download for " .. tostring(b_img_url))
-        return false
+        return "the downloaded icon is no longer available"
     end
 
     local f = io.open(tmp_path, "rb")
     if not f then
         logger:error("set_icon_from_url: cannot open cached file: " .. tmp_path)
-        return false
+        return "the downloaded icon could not be read"
     end
     local bytes = f:read("*a")
     f:close()
 
-    local result = icons.write_icon(a_appid, bytes, c_extension)
+    local ok, reason = icons.write_icon(a_appid, bytes, c_extension)
 
     os.remove(tmp_path)
     img_cache[b_img_url] = nil
 
-    return result
+    if ok then return "" end
+    return reason or "the icon could not be written"
 end
 
 function clear_icon(a_appid)
     return icons.clear_icon(a_appid)
+end
+
+function get_icon_path(a_appid)
+    return icons.get_icon_path(a_appid)
 end
 
 -- MISSING IMAGES

@@ -5,6 +5,7 @@ import {
     type PluginConfig, type GameIDOverrides, type CustomizationStates,
 } from "./config";
 import { patchLibraryContextMenu, OnPopupCreation, replaceCollectionImages } from "./context-menu";
+import { patchBigPictureLibrary } from "./bigpicture-menu";
 import { EasyGridRouteContent } from "./easygrid-modal";
 import { SettingsContent } from "./settings-components";
 
@@ -14,8 +15,9 @@ declare global {
     var collectionStore: any;
     var uiStore: any;
     interface Window {
-        __easygrid_mwbm_hooked__?: boolean;
+        __easygrid_mwbm_hooked__?: any;
         __easygrid_context_menu_patch__?: { unpatch: () => void };
+        __easygrid_bigpicture_patch__?: { unpatch: () => void };
         __easygrid_route_registered__?: boolean;
     }
 }
@@ -44,6 +46,10 @@ export default definePlugin(async () => {
         window.__easygrid_context_menu_patch__ = patchLibraryContextMenu();
     }
 
+    if (!window.__easygrid_bigpicture_patch__) {
+        window.__easygrid_bigpicture_patch__ = patchBigPictureLibrary();
+    }
+
     if (!window.__easygrid_route_registered__) {
         window.__easygrid_route_registered__ = true;
         routerHook.addRoute('/easygrid', EasyGridRouteContent, { exact: true });
@@ -60,6 +66,8 @@ export default definePlugin(async () => {
         onDismount() {
             window.__easygrid_context_menu_patch__?.unpatch?.();
             delete window.__easygrid_context_menu_patch__;
+            window.__easygrid_bigpicture_patch__?.unpatch?.();
+            delete window.__easygrid_bigpicture_patch__;
             routerHook.removeRoute('/easygrid');
             window.__easygrid_route_registered__ = false;
         },

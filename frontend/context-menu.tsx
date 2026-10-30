@@ -1,9 +1,9 @@
 import { Millennium, Menu, MenuItem, MenuGroup as SdkMenuGroup, showContextMenu, showModal, ConfirmModal, DialogButton, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
 import { createRoot } from "react-dom/client";
-import { useState, useEffect } from "react";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
-import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp } from "./api";
+import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp, unquoteBackendString } from "./api";
 import { openEasyGridForApp, openSGDBWindow, setDesktopPopup } from "./easygrid-modal";
+import { setIconRefreshPopup } from "./icon-refresh";
 import { get_missing_images } from "./backend";
 
 const WaitForElement = async (sel: string, parent = document) => [...(await Millennium.findElement(parent, sel))][0];
@@ -14,7 +14,7 @@ const isMenuItemClass = (e: any) => {
     return src.includes('"emphasis"==this.props.tone') || src.includes('this.props.tone=="emphasis"');
 };
 
-const MenuGroup: typeof SdkMenuGroup = SdkMenuGroup ?? (() => {
+export const MenuGroup: typeof SdkMenuGroup = SdkMenuGroup ?? (() => {
     const menuModule = findModuleByExport(isMenuItemClass);
     return Object.values(menuModule ?? {}).find((e: any) => typeof e === "function" && e.toString().includes("bInGamepadUI:")) as typeof SdkMenuGroup;
 })();
@@ -22,56 +22,40 @@ const MenuGroup: typeof SdkMenuGroup = SdkMenuGroup ?? (() => {
 const IMAGE_TYPE_LABELS = Object.values(imgTypeSettingsMap).map((t) => t.label);
 const ALL_IMAGE_TYPES = IMAGE_TYPE_LABELS.map((_, idx) => idx);
 
-// While a run started from the SGDB menu is in progress, a Stop button is shown next to the SGDB button
 let runInProgress = false;
 let stopRequested = false;
-const runStateListeners = new Set<(running: boolean) => void>();
+let currentRun: Promise<void> | undefined;
 
-function setRunInProgress(running: boolean) {
-    runInProgress = running;
-    runStateListeners.forEach((listener) => listener(running));
+export function buildStopMenuItem() {
+    if (!runInProgress) return null;
+    return <MenuItem onClick={() => { stopRequested = true; }}>Stop</MenuItem>;
 }
 
 async function runStoppable(setStatus: (text: string) => void, job: (onProgress: (current: number, total: number) => void) => Promise<void>) {
-    if (runInProgress) return;
-    stopRequested = false;
-    setRunInProgress(true);
-    try {
-        await job((j, total) => setStatus(`Working... (${j}/${total})`));
-    } finally {
-        setRunInProgress(false);
+    while (runInProgress) {
+        stopRequested = true;
+        await currentRun?.catch(() => {});
     }
-    showFinalStatus(setStatus, stopRequested ? "SGDB (stopped by user)" : "Done!");
+    stopRequested = false;
+    runInProgress = true;
+
+    let stopped = false;
+    currentRun = (async () => {
+        try {
+            await job((j, total) => setStatus(`Working... (${j}/${total})`));
+        } finally {
+            stopped = stopRequested;
+            runInProgress = false;
+        }
+    })();
+    await currentRun;
+    showFinalStatus(setStatus, stopped ? "SGDB (stopped by user)" : "Done!");
 }
 
 // Back to the plain label after a few seconds, unless another run has started meanwhile
 function showFinalStatus(setStatus: (text: string) => void, text: string) {
     setStatus(text);
     setTimeout(() => { if (!runInProgress) setStatus("SGDB"); }, 5000);
-}
-
-function StopButton() {
-    const [running, setRunning] = useState(runInProgress);
-    const [stopping, setStopping] = useState(false);
-
-    useEffect(() => {
-        const listener = (value: boolean) => {
-            setRunning(value);
-            if (!value) setStopping(false);
-        };
-        runStateListeners.add(listener);
-        return () => { runStateListeners.delete(listener); };
-    }, []);
-
-    if (!running) return null;
-    return (
-        <div className="easygrid-stop-button" style={{marginLeft: "8px"}}>
-            <DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}} disabled={stopping} onClick={() => {
-                stopRequested = true;
-                setStopping(true);
-            }}>{stopping ? "Stopping..." : "Stop"}</DialogButton>
-        </div>
-    );
 }
 
 export async function replaceCollectionImages(currentColl: any, imgTypes: number[], onProgress: (current: number, total: number) => void, forceReplaceCustomImagesOption: boolean | undefined = undefined) {
@@ -97,7 +81,7 @@ export async function replaceCollectionImages(currentColl: any, imgTypes: number
 async function getMissingImageTypes(appid: number): Promise<number[] | undefined> {
     try {
         const missing = await get_missing_images({ a_appid: appid });
-        return String(missing || "").split(",").filter((s) => s !== "").map(Number).filter((t) => ALL_IMAGE_TYPES.includes(t));
+        return unquoteBackendString(missing).split(",").filter((s) => s !== "").map(Number).filter((t) => ALL_IMAGE_TYPES.includes(t));
     } catch (err) {
         console.log("[steam-easygrid 4] Could not check missing images for", appid, err);
         return undefined;
@@ -175,7 +159,7 @@ function resetCollectionImages(currentColl: any, imgTypes: number[], onProgress:
     }
 }
 
-function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text: string) => void, parentWindow?: Window) {
+export function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text: string) => void, parentWindow?: Window) {
     return (
         <>
             <MenuGroup label="Replace">
@@ -184,19 +168,13 @@ function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus: (text
                 ))}
                 <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => replaceCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, onProgress))}>All</MenuItem>
                 <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => replaceMissingCollectionImages(getCurrentColl(), onProgress))}>Replace only the missing images</MenuItem>
-                <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => checkMissingCollectionImages(getCurrentColl(), onProgress, parentWindow))}>Check missing images</MenuItem>
+                {parentWindow && <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => checkMissingCollectionImages(getCurrentColl(), onProgress, parentWindow))}>Check missing images</MenuItem>}
             </MenuGroup>
             <MenuGroup label="Reset">
                 {IMAGE_TYPE_LABELS.map((label, idx) => (
-                    <MenuItem key={idx} onClick={() => {
-                        resetCollectionImages(getCurrentColl(), [idx], (j, total) => setStatus(`Working... (${j}/${total})`));
-                        showFinalStatus(setStatus, "Done!");
-                    }}>{label}</MenuItem>
+                    <MenuItem key={idx} onClick={() => runStoppable(setStatus, async (onProgress) => resetCollectionImages(getCurrentColl(), [idx], onProgress))}>{label}</MenuItem>
                 ))}
-                <MenuItem onClick={() => {
-                    resetCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, (j, total) => setStatus(`Working... (${j}/${total})`));
-                    showFinalStatus(setStatus, "Done!");
-                }}>All</MenuItem>
+                <MenuItem onClick={() => runStoppable(setStatus, async (onProgress) => resetCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, onProgress))}>All</MenuItem>
             </MenuGroup>
         </>
     );
@@ -210,15 +188,13 @@ async function renderHome(popup: any) {
         const gridButton = popup.m_popup.document.createElement("div");
         gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<><DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}}>SGDB</DialogButton><StopButton/></>);
+        gridButtonRoot.render(<DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}}>SGDB</DialogButton>);
         if (getComputedStyle(addShelfRow).position === "static") (addShelfRow as HTMLElement).style.position = "relative";
-        gridButton.style.cssText = "position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1; display: flex; align-items: center;";
+        gridButton.style.cssText = "position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1;";
         addShelfRow.insertBefore(gridButton, addShelfRow.firstChild);
 
-        gridButton.addEventListener("click", async (event: MouseEvent) => {
+        gridButton.addEventListener("click", async () => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
-            // The menu stays closed during a run: the Stop button handles its own clicks
-            if (runInProgress || (event.target as HTMLElement).closest(".easygrid-stop-button")) return;
 
             const collectionMenuGroups = [
                 <MenuGroup key="easygrid-all-games" label="All Games">
@@ -237,6 +213,7 @@ async function renderHome(popup: any) {
 
             showContextMenu(
                 <Menu label="EasyGrid Options">
+                    {buildStopMenuItem()}
                     {collectionMenuGroups}
                 </Menu>,
                 gridButton,
@@ -267,18 +244,16 @@ async function renderCollection(popup: any) {
         const gridButton = popup.m_popup.document.createElement("div");
         gridButton.className = "easygrid-button";
         const gridButtonRoot = createRoot(gridButton);
-        gridButtonRoot.render(<><DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}}>SGDB</DialogButton><StopButton/></>);
-        gridButton.style.cssText = "display: flex; align-items: center;";
+        gridButtonRoot.render(<DialogButton style={{width: "auto", minWidth: "50px", whiteSpace: "nowrap", padding: "0 12px"}}>SGDB</DialogButton>);
         collOptionsDiv.insertBefore(gridButton, collOptionsDiv.firstChild!.nextSibling);
 
-        gridButton.addEventListener("click", async (event: MouseEvent) => {
+        gridButton.addEventListener("click", async () => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
             const getCurrentColl = () => collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-            // The menu stays closed during a run: the Stop button handles its own clicks
-            if (runInProgress || (event.target as HTMLElement).closest(".easygrid-stop-button")) return;
 
             showContextMenu(
                 <Menu label="EasyGrid Options">
+                    {buildStopMenuItem()}
                     {buildReplaceResetMenuGroups(getCurrentColl, setStatus, popup.m_popup.window)}
                 </Menu>,
                 gridButton,
@@ -469,11 +444,7 @@ export async function OnPopupCreation(popup: any) {
 
     await sleep(10000);
     setDesktopPopup(popup);
-
-    if (window.__easygrid_mwbm_hooked__) {
-        console.log("[steam-easygrid 4] finished-request already hooked, skipping duplicate registration");
-        return;
-    }
+    setIconRefreshPopup(popup);
 
     let mwbm = undefined;
     while (!mwbm) {
@@ -485,9 +456,15 @@ export async function OnPopupCreation(popup: any) {
         }
     }
 
-    window.__easygrid_mwbm_hooked__ = true;
+    const browser = mwbm.m_browser;
+    if (window.__easygrid_mwbm_hooked__ === browser) {
+        console.log("[steam-easygrid 4] finished-request already hooked for this window, skipping duplicate registration");
+        return;
+    }
+
+    window.__easygrid_mwbm_hooked__ = browser;
     console.log("[steam-easygrid 4] Registering callback");
-    MainWindowBrowserManager.m_browser.on("finished-request", async (currentURL: any, previousURL: any) => {
+    browser.on("finished-request", async (currentURL: any, previousURL: any) => {
         void currentURL;
         void previousURL;
 
