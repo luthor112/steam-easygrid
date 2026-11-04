@@ -3,6 +3,8 @@ local millennium = require("millennium")
 local http = require("http")
 local utils = require("utils")
 local icons = require("icons")
+local backup = require("backup")
+local cjson = require("cjson")
 local fs = require("fs")
 
 local is_windows = package.config:sub(1, 1) == "\\"
@@ -145,6 +147,20 @@ function load_store(a_key)
     local data = f:read("*a")
     f:close()
     return data or ""
+end
+
+-- BACKUPS
+
+function create_backup(a_root, b_keep)
+    return cjson.encode(backup.create(a_root, b_keep))
+end
+
+function list_backups(a_path)
+    return cjson.encode({ default_root = backup.default_root(), backups = backup.list(a_path) })
+end
+
+function restore_backup(a_backup_path, b_safety_root, c_keep)
+    return cjson.encode(backup.restore(a_backup_path, b_safety_root, c_keep))
 end
 
 -- ICONS

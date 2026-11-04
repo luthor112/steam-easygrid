@@ -28,6 +28,9 @@ export type PluginConfig = {
     reapply_app_page: boolean,
     hide_type_settings: boolean,
     auto_replace_grids: boolean,
+    auto_backup: boolean,
+    backup_folder: string,
+    backup_keep: number,
     grids_config: ImageTypeSubConfig,
     wide_grids_config: ImageTypeSubConfig,
     heroes_config: ImageTypeSubConfig,
@@ -54,6 +57,9 @@ const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
     reapply_app_page: true,
     hide_type_settings: false,
     auto_replace_grids: false,
+    auto_backup: true,
+    backup_folder: "",
+    backup_keep: 5,
     grids_config: {
         nsfw: "false",
         humor: "any",
@@ -254,6 +260,7 @@ const GLOBAL_SETTINGS_KEYS: (keyof PluginConfig)[] = [
     "display_name_fallback", "replace_custom_images", "appids_excluded_from_replacement",
     "prioritize_animated", "prioritize_authors", "expand_headers", "expand_hero_image",
     "collection_button", "disable_webp", "reapply_app_page", "hide_type_settings",
+    "auto_backup", "backup_folder", "backup_keep",
 ];
 
 export function resetGlobalSettings() {

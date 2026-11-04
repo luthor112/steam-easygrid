@@ -6,6 +6,7 @@ import {
     resetImageTypeConfig, resetGlobalSettings,
     type PluginConfig, type ImageTypeSubConfig, type BoolKeys, type StringKeys, type NumKeys, type StringArrayKeys,
 } from "./config";
+import { createBackup, listBackups, restoreBackup, describeBackup, describeBackupResult, describeRestoreResult, type BackupInfo } from "./backup";
 
 type SettingFieldProps = {
     label: string;
@@ -273,6 +274,46 @@ export const ImageSearchSetting = (props: ImageSearchSettingProps) => {
     );
 }
 
+const BackupActions = (props: { useTooltip?: boolean }) => {
+    const [busy, setBusy] = useState(false);
+    const [status, setStatus] = useState("");
+    const [restorePath, setRestorePath] = useState("");
+    const [found, setFound] = useState<BackupInfo[] | undefined>();
+
+    const run = async (job: () => Promise<string>) => {
+        setBusy(true);
+        try {
+            setStatus(await job());
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const findBackups = () => run(async () => {
+        const { backups } = await listBackups(restorePath.trim() || pluginConfig.backup_folder);
+        setFound(backups);
+        return backups.length ? "" : "No backups found there";
+    });
+
+    return (
+        <React.Fragment>
+            <SettingField label="Back up now" description="Saves your custom artwork to the backup folder" useTooltip={props.useTooltip}>
+                <DialogButton disabled={busy} onClick={() => run(async () => describeBackupResult(await createBackup()))}>Back up now</DialogButton>
+            </SettingField>
+            <SettingField label="Restore from" description="A folder with backups, or a single backup (it can be anywhere). Empty uses the backup folder" useTooltip={props.useTooltip}>
+                <TextField style={{ width: "100%", boxSizing: "border-box" }} value={restorePath} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setRestorePath(e.currentTarget.value); setFound(undefined); }} />
+                <DialogButton disabled={busy} onClick={findBackups}>Find backups</DialogButton>
+            </SettingField>
+            {found?.map((backup) => (
+                <SettingField key={backup.path} label={describeBackup(backup)} description={backup.path} useTooltip={props.useTooltip}>
+                    <DialogButton disabled={busy} onClick={() => run(async () => describeRestoreResult(await restoreBackup(backup.path)))}>Restore</DialogButton>
+                </SettingField>
+            ))}
+            {status && <div style={{ padding: "8px 0" }}>{status}</div>}
+        </React.Fragment>
+    );
+};
+
 type GlobalSettingsFieldsProps = {
     useTooltip?: boolean;
 };
@@ -301,6 +342,10 @@ const GlobalSettingsFields = (props: GlobalSettingsFieldsProps) => {
             <SingleSetting name="reapply_app_page" type="bool" label="Reapply on UI modification" description="Fixes header size problem, causes others" useTooltip={props.useTooltip} />
             <SingleSetting name="hide_type_settings" type="bool" label="Hide per-type filter settings" description="Hide the filter settings block above the image grid on each tab" useTooltip={props.useTooltip} />
             <SingleSetting name="auto_replace_grids" type="bool" label="Auto check and replace grids" description="On startup, automatically try to apply grid images from SGDB to all applications not yet customized (not recommended for bigger libraries)" useTooltip={props.useTooltip} />
+            <SingleSetting name="auto_backup" type="bool" label="Back up before SGDB runs" description="Save your custom artwork to the backup folder before the SGDB menu replaces or resets images" useTooltip={props.useTooltip} />
+            <SingleSetting name="backup_folder" type="text" label="Backup folder" description="Where backups are saved (empty: the plugin's own folder inside Steam/millennium/config)" useTooltip={props.useTooltip} />
+            <SingleSetting name="backup_keep" type="num" label="Backups to keep" description="Older backups in the backup folder are deleted" useTooltip={props.useTooltip} />
+            <BackupActions useTooltip={props.useTooltip} />
         </React.Fragment>
     );
 };

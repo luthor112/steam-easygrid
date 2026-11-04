@@ -1,6 +1,6 @@
 import { Menu, Focusable, showContextMenu, routerHook, EUIMode } from "@steambrew/client";
 import { useEffect, useState } from "react";
-import { MenuGroup, buildReplaceResetMenuGroups, buildStopMenuItem } from "./context-menu";
+import { MenuGroup, buildBackupMenuGroup, buildReplaceResetMenuGroups, buildStopMenuItem } from "./context-menu";
 
 const SELECT_BUTTON = 13;
 const LIBRARY_ROUTES = ["/library/home", "/library"];
@@ -14,8 +14,9 @@ function setStatus(text: string) {
     statusListeners.forEach((listener) => listener());
 }
 
-function openSgdbMenu(anchor: any) {
+async function openSgdbMenu(anchor: any) {
     const groups = [
+        await buildBackupMenuGroup(setStatus),
         <MenuGroup key="easygrid-all-games" label="All Games">
             {buildReplaceResetMenuGroups(() => collectionStore.allAppsCollection, setStatus)}
         </MenuGroup>,

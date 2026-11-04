@@ -2,6 +2,7 @@ import { Millennium, Menu, MenuItem, MenuGroup as SdkMenuGroup, showContextMenu,
 import { createRoot } from "react-dom/client";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
 import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp, unquoteBackendString } from "./api";
+import { autoBackup, createBackup, restoreBackup, listBackups, describeBackup, describeBackupResult, describeRestoreResult } from "./backup";
 import { openEasyGridForApp, openSGDBWindow, setDesktopPopup } from "./easygrid-modal";
 import { setIconRefreshPopup } from "./icon-refresh";
 import { get_missing_images } from "./backend";
@@ -31,7 +32,7 @@ export function buildStopMenuItem() {
     return <MenuItem onClick={() => { stopRequested = true; }}>Stop</MenuItem>;
 }
 
-async function runStoppable(setStatus: (text: string) => void, job: (onProgress: (current: number, total: number) => void) => Promise<void>) {
+async function runStoppable(setStatus: (text: string) => void, job: (onProgress: (current: number, total: number) => void) => Promise<string | void>, backupFirst = true) {
     while (runInProgress) {
         stopRequested = true;
         await currentRun?.catch(() => {});
@@ -40,16 +41,39 @@ async function runStoppable(setStatus: (text: string) => void, job: (onProgress:
     runInProgress = true;
 
     let stopped = false;
+    let finalText = "Done!";
     currentRun = (async () => {
         try {
-            await job((j, total) => setStatus(`Working... (${j}/${total})`));
+            if (backupFirst && pluginConfig.auto_backup) {
+                setStatus("Backing up...");
+                const backupError = await autoBackup();
+                if (backupError) finalText = `Done! (${backupError})`;
+            }
+            const jobText = await job((j, total) => setStatus(`Working... (${j}/${total})`));
+            if (jobText) finalText = jobText;
         } finally {
             stopped = stopRequested;
             runInProgress = false;
         }
     })();
     await currentRun;
-    showFinalStatus(setStatus, stopped ? "SGDB (stopped by user)" : "Done!");
+    showFinalStatus(setStatus, stopped ? "SGDB (stopped by user)" : finalText);
+}
+
+const MAX_RESTORE_MENU_ENTRIES = 8;
+
+export async function buildBackupMenuGroup(setStatus: (text: string) => void) {
+    const { backups } = await listBackups(pluginConfig.backup_folder);
+    return (
+        <MenuGroup key="easygrid-backup" label="Backup">
+            <MenuItem onClick={() => runStoppable(setStatus, async () => describeBackupResult(await createBackup()), false)}>Back up artwork now</MenuItem>
+            {backups.slice(0, MAX_RESTORE_MENU_ENTRIES).map((backup) => (
+                <MenuItem key={backup.path} onClick={() => runStoppable(setStatus, async () => describeRestoreResult(await restoreBackup(backup.path)), false)}>
+                    Restore {describeBackup(backup)}
+                </MenuItem>
+            ))}
+        </MenuGroup>
+    );
 }
 
 // Back to the plain label after a few seconds, unless another run has started meanwhile
@@ -168,7 +192,7 @@ export function buildReplaceResetMenuGroups(getCurrentColl: () => any, setStatus
                 ))}
                 <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => replaceCollectionImages(getCurrentColl(), ALL_IMAGE_TYPES, onProgress))}>All</MenuItem>
                 <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => replaceMissingCollectionImages(getCurrentColl(), onProgress))}>Replace only the missing images</MenuItem>
-                {parentWindow && <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => checkMissingCollectionImages(getCurrentColl(), onProgress, parentWindow))}>Check missing images</MenuItem>}
+                {parentWindow && <MenuItem onClick={() => runStoppable(setStatus, (onProgress) => checkMissingCollectionImages(getCurrentColl(), onProgress, parentWindow), false)}>Check missing images</MenuItem>}
             </MenuGroup>
             <MenuGroup label="Reset">
                 {IMAGE_TYPE_LABELS.map((label, idx) => (
@@ -196,7 +220,9 @@ async function renderHome(popup: any) {
         gridButton.addEventListener("click", async () => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
 
+            const backupGroup = await buildBackupMenuGroup(setStatus);
             const collectionMenuGroups = [
+                backupGroup,
                 <MenuGroup key="easygrid-all-games" label="All Games">
                     {buildReplaceResetMenuGroups(() => collectionStore.allAppsCollection, setStatus, popup.m_popup.window)}
                 </MenuGroup>,
@@ -250,10 +276,12 @@ async function renderCollection(popup: any) {
         gridButton.addEventListener("click", async () => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
             const getCurrentColl = () => collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
+            const backupGroup = await buildBackupMenuGroup(setStatus);
 
             showContextMenu(
                 <Menu label="EasyGrid Options">
                     {buildStopMenuItem()}
+                    {backupGroup}
                     {buildReplaceResetMenuGroups(getCurrentColl, setStatus, popup.m_popup.window)}
                 </Menu>,
                 gridButton,

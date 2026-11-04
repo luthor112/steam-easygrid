@@ -10,4 +10,7 @@ export const load_store = callable<[{ a_key: string }], string>('load_store');
 export const set_icon_from_url = callable<[{ a_appid: number, b_img_url: string, c_extension: string }], string>('set_icon_from_url');
 export const clear_icon = callable<[{ a_appid: number }], boolean>('clear_icon');
 export const get_icon_path = callable<[{ a_appid: number }], string>('get_icon_path');
+export const create_backup = callable<[{ a_root: string, b_keep: number }], string>('create_backup');
+export const list_backups = callable<[{ a_path: string }], string>('list_backups');
+export const restore_backup = callable<[{ a_backup_path: string, b_safety_root: string, c_keep: number }], string>('restore_backup');
 export const get_missing_images = callable<[{ a_appid: number }], string>('get_missing_images');
