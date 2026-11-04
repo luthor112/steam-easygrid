@@ -73,6 +73,24 @@ function M.write_icon(appid, bytes, extension)
         end
     end
 
+    if M.write_cache_icon(appid, bytes, extension) then wrote_any = true end
+
+    if not wrote_any then
+        return false, "found no place to write the icon to"
+    end
+    return true
+end
+
+---Write icon bytes to Steam's library cache only, where it draws the icons of real games from.
+---@param appid string|number
+---@param bytes string raw PNG or JPEG bytes
+---@param extension string file extension without the dot
+---@return boolean wrote_any
+function M.write_cache_icon(appid, bytes, extension)
+    appid = tostring(appid)
+    local base_name = appid .. "_icon"
+    local wrote_any = false
+
     local cache_dir = steam_library_cache_path()
     if fs.exists(cache_dir) then
         remove_matching_stem(cache_dir, base_name)
@@ -95,10 +113,7 @@ function M.write_icon(appid, bytes, extension)
         end
     end
 
-    if not wrote_any then
-        return false, "found no place to write the icon to"
-    end
-    return true
+    return wrote_any
 end
 
 ---Remove any custom icon set via write_icon and restore the original hashed

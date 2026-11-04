@@ -2,6 +2,7 @@ local millennium = require("millennium")
 local fs = require("fs")
 local logger = require("logger")
 local cjson = require("cjson")
+local icons = require("icons")
 
 local M = {}
 
@@ -191,6 +192,7 @@ function M.restore(backup_path, safety_root, keep)
     local safety_name = safety.ok and safety.name or nil
 
     local restored, skipped = 0, {}
+    local cached_icons = {}
     local grid_root = fs.join(backup_path, GRID_DIR)
     local udata = userdata_path()
     for _, user_entry in ipairs(fs.exists(grid_root) and fs.list(grid_root) or {}) do
@@ -204,6 +206,17 @@ function M.restore(backup_path, safety_root, keep)
                     remove_matching_stem(grid_dir, fs.stem(file.path))
                     if fs.copy(file.path, fs.join(grid_dir, fs.filename(file.path))) then
                         restored = restored + 1
+                    end
+
+                    local icon_appid = string.match(fs.stem(file.path), "^(%d+)_icon$")
+                    if icon_appid and not cached_icons[icon_appid] then
+                        cached_icons[icon_appid] = true
+                        local f = io.open(file.path, "rb")
+                        if f then
+                            local bytes = f:read("*a")
+                            f:close()
+                            icons.write_cache_icon(icon_appid, bytes, string.sub(fs.extension(file.path), 2))
+                        end
                     end
                 end
             end
