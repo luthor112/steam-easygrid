@@ -151,16 +151,22 @@ end
 
 -- BACKUPS
 
-function create_backup(a_root, b_keep)
-    return cjson.encode(backup.create(a_root, b_keep))
+function create_backup(a_root, b_keep, c_preset_name)
+    local preset_name = c_preset_name ~= "" and c_preset_name or nil
+    return cjson.encode(backup.create(a_root, b_keep, nil, nil, preset_name))
+end
+
+function delete_preset(a_path)
+    return cjson.encode(backup.delete_preset(a_path))
 end
 
 function list_backups(a_path)
     return cjson.encode({ default_root = backup.default_root(), backups = backup.list(a_path) })
 end
 
-function restore_backup(a_backup_path, b_safety_root, c_keep)
-    return cjson.encode(backup.restore(a_backup_path, b_safety_root, c_keep))
+function restore_backup(a_backup_path, b_safety_root, c_keep, d_backup_first)
+    local backup_first = not (d_backup_first == 0 or d_backup_first == false)
+    return cjson.encode(backup.restore(a_backup_path, b_safety_root, c_keep, backup_first))
 end
 
 -- ICONS

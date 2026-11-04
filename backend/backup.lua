@@ -7,6 +7,7 @@ local icons = require("icons")
 local M = {}
 
 local NAME_PREFIX = "easygrid-backup-"
+local PRESET_PREFIX = "easygrid-preset-"
 local MANIFEST = "manifest.json"
 local GRID_DIR = "grid"
 local STORE_DIR = "store"
@@ -70,6 +71,8 @@ function M.list(path)
         if manifest then
             table.insert(found, {
                 name = fs.filename(dir),
+                label = manifest.name or fs.filename(dir),
+                preset = manifest.preset == true,
                 path = normalize(dir),
                 created = manifest.created or 0,
                 grid_files = manifest.grid_files or 0,
@@ -114,21 +117,30 @@ end
 ---@param keep number how many backups to keep in that folder
 ---@param suffix string? appended to the backup's name
 ---@param protect_path string? backup that must survive pruning
+---@param preset_name string? makes this a named preset, which is never pruned
 ---@return table result { ok, error?, name?, path?, grid_files? }
-function M.create(root, keep, suffix, protect_path)
+function M.create(root, keep, suffix, protect_path, preset_name)
     root = resolve_root(root)
     local ok_dir, dir_err = fs.create_directories(root)
     if ok_dir == nil or not fs.is_directory(root) then
         return { ok = false, error = "cannot create the backup folder " .. root .. " (" .. tostring(dir_err) .. ")" }
     end
 
-    local base_name = NAME_PREFIX .. os.date("%Y%m%d-%H%M%S") .. (suffix or "")
-    local name, dest, n = base_name, nil, 1
-    repeat
-        dest = fs.join(root, name)
-        n = n + 1
-        name = base_name .. "-" .. n
-    until not fs.exists(dest)
+    local dest
+    if preset_name then
+        local slug = string.sub((string.gsub(string.match(preset_name, "^%s*(.-)%s*$"), "[^%w _-]", "_")), 1, 40)
+        if slug == "" then return { ok = false, error = "the preset needs a name" } end
+        dest = fs.join(root, PRESET_PREFIX .. slug)
+        if fs.exists(dest) then return { ok = false, error = "a preset named " .. slug .. " already exists" } end
+    else
+        local base_name = NAME_PREFIX .. os.date("%Y%m%d-%H%M%S") .. (suffix or "")
+        local name, n = base_name, 1
+        repeat
+            dest = fs.join(root, name)
+            n = n + 1
+            name = base_name .. "-" .. n
+        until not fs.exists(dest)
+    end
     fs.create_directories(dest)
 
     local users, grid_files = 0, 0
@@ -162,7 +174,10 @@ function M.create(root, keep, suffix, protect_path)
         return { ok = false, empty = true, error = "there is no custom artwork to back up" }
     end
 
-    local manifest = cjson.encode({ version = 1, created = os.time(), users = users, grid_files = grid_files, store_files = store_files })
+    local manifest = cjson.encode({
+        version = 1, created = os.time(), users = users, grid_files = grid_files, store_files = store_files,
+        preset = preset_name ~= nil, name = preset_name and string.match(preset_name, "^%s*(.-)%s*$") or nil,
+    })
     local manifest_file = io.open(fs.join(dest, MANIFEST), "wb")
     if not manifest_file then
         fs.remove_all(dest)
@@ -176,20 +191,38 @@ function M.create(root, keep, suffix, protect_path)
     return { ok = true, name = fs.filename(dest), path = normalize(dest), grid_files = grid_files }
 end
 
----Puts a backup's artwork back. Everything currently in place is backed up first,
----so a restore can always be undone.
+---Deletes a preset. Regular backups are only removed by pruning.
+---@param path string
+---@return table result { ok, error? }
+function M.delete_preset(path)
+    path = normalize(path or "")
+    if string.sub(fs.filename(path), 1, #PRESET_PREFIX) ~= PRESET_PREFIX or not read_manifest(path) then
+        return { ok = false, error = path .. " is not a preset" }
+    end
+    fs.remove_all(path)
+    return { ok = true }
+end
+
+---Puts a backup's artwork back, backing up everything currently in place first if asked to.
 ---@param backup_path string folder containing a manifest.json
 ---@param safety_root string backup folder to put the safety backup into, empty for the default one
 ---@param keep number
+---@param backup_first boolean
 ---@return table result { ok, error?, restored?, skipped_users?, safety_backup? }
-function M.restore(backup_path, safety_root, keep)
+function M.restore(backup_path, safety_root, keep, backup_first)
     backup_path = normalize(backup_path or "")
     if not read_manifest(backup_path) then
         return { ok = false, error = backup_path .. " is not an Easy SteamGrid backup" }
     end
 
-    local safety = M.create(safety_root, keep, "-pre-restore", backup_path)
-    local safety_name = safety.ok and safety.name or nil
+    local safety_name
+    if backup_first then
+        local safety = M.create(safety_root, keep, "-pre-restore", backup_path)
+        if not safety.ok and not safety.empty then
+            return { ok = false, error = "could not back up the current artwork first: " .. tostring(safety.error) }
+        end
+        safety_name = safety.ok and safety.name or nil
+    end
 
     local restored, skipped = 0, {}
     local cached_icons = {}

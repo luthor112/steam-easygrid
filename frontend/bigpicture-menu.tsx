@@ -16,7 +16,7 @@ function setStatus(text: string) {
 
 async function openSgdbMenu(anchor: any) {
     const groups = [
-        await buildBackupMenuGroup(setStatus),
+        await buildBackupMenuGroup(setStatus, anchor),
         <MenuGroup key="easygrid-all-games" label="All Games">
             {buildReplaceResetMenuGroups(() => collectionStore.allAppsCollection, setStatus)}
         </MenuGroup>,

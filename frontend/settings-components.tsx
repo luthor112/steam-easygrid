@@ -6,7 +6,7 @@ import {
     resetImageTypeConfig, resetGlobalSettings,
     type PluginConfig, type ImageTypeSubConfig, type BoolKeys, type StringKeys, type NumKeys, type StringArrayKeys,
 } from "./config";
-import { createBackup, listBackups, restoreBackup, describeBackup, describeBackupResult, describeRestoreResult, type BackupInfo } from "./backup";
+import { createBackup, deletePreset, listBackups, restoreBackup, describeBackup, describeBackupResult, describeRestoreResult, type BackupInfo } from "./backup";
 
 type SettingFieldProps = {
     label: string;
@@ -278,6 +278,13 @@ const BackupActions = (props: { useTooltip?: boolean }) => {
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState("");
     const [restorePath, setRestorePath] = useState("");
+    const [presetName, setPresetName] = useState("");
+    const [pending, setPending] = useState<{ backup: BackupInfo; stage: "backup" | "sure" } | undefined>();
+
+    const restore = (backup: BackupInfo, backupFirst: boolean) => {
+        setPending(undefined);
+        return run(async () => describeRestoreResult(await restoreBackup(backup.path, backupFirst)));
+    };
     const [found, setFound] = useState<BackupInfo[] | undefined>();
 
     const run = async (job: () => Promise<string>) => {
@@ -295,10 +302,23 @@ const BackupActions = (props: { useTooltip?: boolean }) => {
         return backups.length ? "" : "No backups found there";
     });
 
+    const refreshFound = async () => {
+        if (found) setFound((await listBackups(restorePath.trim() || pluginConfig.backup_folder)).backups);
+    };
+
     return (
         <React.Fragment>
             <SettingField label="Back up now" description="Saves your custom artwork to the backup folder" useTooltip={props.useTooltip}>
-                <DialogButton disabled={busy} onClick={() => run(async () => describeBackupResult(await createBackup()))}>Back up now</DialogButton>
+                <DialogButton disabled={busy} onClick={() => run(async () => { const text = describeBackupResult(await createBackup()); await refreshFound(); return text; })}>Back up now</DialogButton>
+            </SettingField>
+            <SettingField label="Save as preset" description="Saves your custom artwork under a name. Presets are kept until you delete them" useTooltip={props.useTooltip}>
+                <TextField style={{ width: "100%", boxSizing: "border-box" }} value={presetName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPresetName(e.currentTarget.value)} />
+                <DialogButton disabled={busy || !presetName.trim()} onClick={() => run(async () => {
+                    const result = await createBackup(presetName.trim());
+                    if (result.ok) setPresetName("");
+                    await refreshFound();
+                    return describeBackupResult(result, true);
+                })}>Save preset</DialogButton>
             </SettingField>
             <SettingField label="Restore from" description="A folder with backups, or a single backup (it can be anywhere). Empty uses the backup folder" useTooltip={props.useTooltip}>
                 <TextField style={{ width: "100%", boxSizing: "border-box" }} value={restorePath} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setRestorePath(e.currentTarget.value); setFound(undefined); }} />
@@ -306,9 +326,29 @@ const BackupActions = (props: { useTooltip?: boolean }) => {
             </SettingField>
             {found?.map((backup) => (
                 <SettingField key={backup.path} label={describeBackup(backup)} description={backup.path} useTooltip={props.useTooltip}>
-                    <DialogButton disabled={busy} onClick={() => run(async () => describeRestoreResult(await restoreBackup(backup.path)))}>Restore</DialogButton>
+                    <DialogButton disabled={busy} onClick={() => setPending({ backup, stage: "backup" })}>Restore</DialogButton>
+                    {backup.preset && (
+                        <DialogButton disabled={busy} onClick={() => run(async () => {
+                            const result = await deletePreset(backup.path);
+                            await refreshFound();
+                            return result.ok ? `Deleted preset "${backup.label}"` : `Deleting the preset failed: ${result.error}`;
+                        })}>Delete</DialogButton>
+                    )}
                 </SettingField>
             ))}
+            {pending?.stage === "backup" && (
+                <SettingField label="Back up your current artwork first?" description={`Before restoring ${describeBackup(pending.backup)}`} useTooltip={props.useTooltip}>
+                    <DialogButton disabled={busy} onClick={() => restore(pending.backup, true)}>Yes, back up first</DialogButton>
+                    <DialogButton disabled={busy} onClick={() => setPending({ backup: pending.backup, stage: "sure" })}>No</DialogButton>
+                    <DialogButton onClick={() => setPending(undefined)}>Cancel</DialogButton>
+                </SettingField>
+            )}
+            {pending?.stage === "sure" && (
+                <SettingField label="Restore without a backup?" description="Your current artwork will be overwritten and can't be brought back" useTooltip={props.useTooltip}>
+                    <DialogButton disabled={busy} onClick={() => restore(pending.backup, false)}>Yes, restore anyway</DialogButton>
+                    <DialogButton onClick={() => setPending(undefined)}>Cancel</DialogButton>
+                </SettingField>
+            )}
             {status && <div style={{ padding: "8px 0" }}>{status}</div>}
         </React.Fragment>
     );

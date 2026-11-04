@@ -1,4 +1,4 @@
-import { create_backup, list_backups, restore_backup, load_store } from "./backend";
+import { create_backup, delete_preset, list_backups, restore_backup, load_store } from "./backend";
 import {
     pluginConfig, mergeStoredOverrides, mergeStoredCustomizationStates, safeParseStoredJSON,
     OVERRIDES_STORAGE_KEY, CUSTOMIZATION_STORAGE_KEY,
@@ -6,6 +6,8 @@ import {
 
 export type BackupInfo = {
     name: string;
+    label: string;
+    preset: boolean;
     path: string;
     created: number;
     grid_files: number;
@@ -32,9 +34,17 @@ function asList<T>(value: unknown): T[] {
     return Array.isArray(value) ? value : [];
 }
 
-export async function createBackup(): Promise<BackupResult> {
+export async function createBackup(presetName = ""): Promise<BackupResult> {
     try {
-        return parseBackendJson(await create_backup({ a_root: pluginConfig.backup_folder, b_keep: pluginConfig.backup_keep })) as BackupResult;
+        return parseBackendJson(await create_backup({ a_root: pluginConfig.backup_folder, b_keep: pluginConfig.backup_keep, c_preset_name: presetName })) as BackupResult;
+    } catch (e) {
+        return { ok: false, error: String(e) };
+    }
+}
+
+export async function deletePreset(path: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        return parseBackendJson(await delete_preset({ a_path: path }));
     } catch (e) {
         return { ok: false, error: String(e) };
     }
@@ -57,9 +67,9 @@ async function reloadStoredState() {
     if (customization) mergeStoredCustomizationStates(safeParseStoredJSON(customization, "restored customization"));
 }
 
-export async function restoreBackup(backupPath: string): Promise<RestoreResult> {
+export async function restoreBackup(backupPath: string, backupFirst: boolean): Promise<RestoreResult> {
     try {
-        const result = parseBackendJson(await restore_backup({ a_backup_path: backupPath, b_safety_root: pluginConfig.backup_folder, c_keep: pluginConfig.backup_keep })) as RestoreResult;
+        const result = parseBackendJson(await restore_backup({ a_backup_path: backupPath, b_safety_root: pluginConfig.backup_folder, c_keep: pluginConfig.backup_keep, d_backup_first: backupFirst ? 1 : 0 })) as RestoreResult;
         if (result.ok) await reloadStoredState();
         return result;
     } catch (e) {
@@ -68,13 +78,15 @@ export async function restoreBackup(backupPath: string): Promise<RestoreResult> 
 }
 
 export function describeBackup(backup: BackupInfo): string {
+    if (backup.preset) return `Preset "${backup.label}" - ${backup.grid_files} files`;
     const when = backup.created ? new Date(backup.created * 1000).toLocaleString() : backup.name;
     const safety = backup.name.endsWith("-pre-restore") ? " (before a restore)" : "";
     return `${when}${safety} - ${backup.grid_files} files`;
 }
 
-export function describeBackupResult(result: BackupResult): string {
-    return result.ok ? `Backup created (${result.grid_files} files)` : `Backup failed: ${result.error}`;
+export function describeBackupResult(result: BackupResult, preset = false): string {
+    const noun = preset ? "Preset saved" : "Backup created";
+    return result.ok ? `${noun} (${result.grid_files} files)` : `${preset ? "Saving the preset" : "Backup"} failed: ${result.error}`;
 }
 
 export function describeRestoreResult(result: RestoreResult): string {

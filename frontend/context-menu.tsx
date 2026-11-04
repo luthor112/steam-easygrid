@@ -2,7 +2,7 @@ import { Millennium, Menu, MenuItem, MenuGroup as SdkMenuGroup, showContextMenu,
 import { createRoot } from "react-dom/client";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
 import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp, unquoteBackendString } from "./api";
-import { autoBackup, createBackup, restoreBackup, listBackups, describeBackup, describeBackupResult, describeRestoreResult } from "./backup";
+import { autoBackup, createBackup, restoreBackup, listBackups, describeBackup, describeBackupResult, describeRestoreResult, type BackupInfo } from "./backup";
 import { openEasyGridForApp, openSGDBWindow, setDesktopPopup } from "./easygrid-modal";
 import { setIconRefreshPopup } from "./icon-refresh";
 import { get_missing_images } from "./backend";
@@ -62,13 +62,41 @@ async function runStoppable(setStatus: (text: string) => void, job: (onProgress:
 
 const MAX_RESTORE_MENU_ENTRIES = 8;
 
-export async function buildBackupMenuGroup(setStatus: (text: string) => void) {
+type MenuPromptItem = { text: string; onClick: () => void };
+
+// The menu that was clicked is closing, so the follow-up menu opens a moment later
+function showMenuPrompt(label: string, items: MenuPromptItem[], anchor: any, options?: any) {
+    setTimeout(() => showContextMenu(
+        <Menu label={label}>
+            {items.map((item) => <MenuItem key={item.text} onClick={item.onClick}>{item.text}</MenuItem>)}
+        </Menu>,
+        anchor,
+        options
+    ), 100);
+}
+
+function promptRestore(backup: BackupInfo, setStatus: (text: string) => void, anchor: any, options?: any) {
+    const restore = (backupFirst: boolean) => runStoppable(setStatus, async () => describeRestoreResult(await restoreBackup(backup.path, backupFirst)), false);
+    const confirmWithoutBackup = () => showMenuPrompt("Restore without a backup? Your current artwork will be overwritten", [
+        { text: "Yes, restore anyway", onClick: () => restore(false) },
+        { text: "Cancel", onClick: () => {} },
+    ], anchor, options);
+
+    showMenuPrompt("Back up your current artwork first?", [
+        { text: "Yes, back up first", onClick: () => restore(true) },
+        { text: "No", onClick: confirmWithoutBackup },
+        { text: "Cancel", onClick: () => {} },
+    ], anchor, options);
+}
+
+export async function buildBackupMenuGroup(setStatus: (text: string) => void, anchor: any, options?: any) {
     const { backups } = await listBackups(pluginConfig.backup_folder);
+    const entries = [...backups.filter((b) => b.preset), ...backups.filter((b) => !b.preset).slice(0, MAX_RESTORE_MENU_ENTRIES)];
     return (
         <MenuGroup key="easygrid-backup" label="Backup">
             <MenuItem onClick={() => runStoppable(setStatus, async () => describeBackupResult(await createBackup()), false)}>Back up artwork now</MenuItem>
-            {backups.slice(0, MAX_RESTORE_MENU_ENTRIES).map((backup) => (
-                <MenuItem key={backup.path} onClick={() => runStoppable(setStatus, async () => describeRestoreResult(await restoreBackup(backup.path)), false)}>
+            {entries.map((backup) => (
+                <MenuItem key={backup.path} onClick={() => promptRestore(backup, setStatus, anchor, options)}>
                     Restore {describeBackup(backup)}
                 </MenuItem>
             ))}
@@ -220,7 +248,7 @@ async function renderHome(popup: any) {
         gridButton.addEventListener("click", async () => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
 
-            const backupGroup = await buildBackupMenuGroup(setStatus);
+            const backupGroup = await buildBackupMenuGroup(setStatus, gridButton, {bForcePopup: true});
             const collectionMenuGroups = [
                 backupGroup,
                 <MenuGroup key="easygrid-all-games" label="All Games">
@@ -276,7 +304,7 @@ async function renderCollection(popup: any) {
         gridButton.addEventListener("click", async () => {
             const setStatus = (text: string) => { gridButton.firstChild.innerHTML = text; };
             const getCurrentColl = () => collectionStore.GetCollection(uiStore.currentGameListSelection.strCollectionId);
-            const backupGroup = await buildBackupMenuGroup(setStatus);
+            const backupGroup = await buildBackupMenuGroup(setStatus, gridButton, {bForcePopup: true});
 
             showContextMenu(
                 <Menu label="EasyGrid Options">
