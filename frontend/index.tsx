@@ -1,7 +1,8 @@
 import { Millennium, IconsModule, definePlugin, routerHook } from "@steambrew/client";
 import {
     pluginConfig, mergeStoredConfig, gameIDOverrides, mergeStoredOverrides,
-    customizationStates, mergeStoredCustomizationStates, safeParseStoredJSON,
+    customizationStates, mergeStoredCustomizationStates, safeParseStoredJSON, loadStored,
+    CONFIG_STORAGE_KEY, OVERRIDES_STORAGE_KEY, CUSTOMIZATION_STORAGE_KEY,
     type PluginConfig, type GameIDOverrides, type CustomizationStates,
 } from "./config";
 import { patchLibraryContextMenu, OnPopupCreation, replaceCollectionImages } from "./context-menu";
@@ -25,17 +26,17 @@ declare global {
 export default definePlugin(async () => {
     console.log("[steam-easygrid 4] frontend startup");
 
-    const rawValue = localStorage.getItem("luthor112.steam-easygrid.config");
+    const rawValue = await loadStored(CONFIG_STORAGE_KEY);
     const storedConfig: Partial<PluginConfig> = safeParseStoredJSON(rawValue, "config");
     mergeStoredConfig(storedConfig);
     console.log("[steam-easygrid 4] Merged config:", pluginConfig);
 
-    const rawOverrideValue = localStorage.getItem("luthor112.steam-easygrid.overrides");
+    const rawOverrideValue = await loadStored(OVERRIDES_STORAGE_KEY);
     const storedOverrides: GameIDOverrides = safeParseStoredJSON(rawOverrideValue, "overrides");
     mergeStoredOverrides(storedOverrides);
     console.log("[steam-easygrid 4] Overrides:", gameIDOverrides);
 
-    const rawCustomizationValue = localStorage.getItem("luthor112.steam-easygrid.customization");
+    const rawCustomizationValue = await loadStored(CUSTOMIZATION_STORAGE_KEY);
     const storedCustomizationStates: CustomizationStates = safeParseStoredJSON(rawCustomizationValue, "customization");
     mergeStoredCustomizationStates(storedCustomizationStates);
     console.log("[steam-easygrid 4] Customization states:", customizationStates);

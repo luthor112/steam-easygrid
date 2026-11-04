@@ -1,4 +1,4 @@
-import { log_frontend } from "./backend";
+import { log_frontend, save_store, load_store } from "./backend";
 
 export const imgTypeDict = ["grids", "heroes", "logos", "wide_grids", "icons"];
 
@@ -187,10 +187,44 @@ export function mergeStoredConfig(stored: Partial<PluginConfig>) {
 
 export function mergeStoredOverrides(stored: GameIDOverrides) {
     gameIDOverrides = { ...gameIDOverrides, ...stored };
+    persistOverrides();
 }
 
 export function mergeStoredCustomizationStates(stored: CustomizationStates) {
     customizationStates = { ...customizationStates, ...stored };
+    persistCustomizationStates();
+}
+
+export const CONFIG_STORAGE_KEY = "luthor112.steam-easygrid.config";
+export const OVERRIDES_STORAGE_KEY = "luthor112.steam-easygrid.overrides";
+export const CUSTOMIZATION_STORAGE_KEY = "luthor112.steam-easygrid.customization";
+
+// Steam's localStorage can be dropped between restarts on some setups, so every write is mirrored to the backend
+function persistStored(key: string, value: unknown) {
+    const raw = JSON.stringify(value);
+    localStorage.setItem(key, raw);
+    save_store({ a_key: key, b_value: raw }).catch((e) => console.error(`[steam-easygrid 4] Failed to mirror ${key} to the backend:`, e));
+}
+
+export async function loadStored(key: string): Promise<string | null> {
+    const raw = localStorage.getItem(key);
+    if (raw) return raw;
+    try {
+        const mirrored = await load_store({ a_key: key });
+        if (mirrored) console.log(`[steam-easygrid 4] localStorage had no ${key}, restored it from the backend`);
+        return mirrored || null;
+    } catch (e) {
+        console.error(`[steam-easygrid 4] Failed to load ${key} from the backend:`, e);
+        return null;
+    }
+}
+
+export function persistOverrides() {
+    persistStored(OVERRIDES_STORAGE_KEY, gameIDOverrides);
+}
+
+function persistCustomizationStates() {
+    persistStored(CUSTOMIZATION_STORAGE_KEY, customizationStates);
 }
 
 export function safeParseStoredJSON(raw: string | null, label: string): any {
@@ -205,7 +239,7 @@ export function safeParseStoredJSON(raw: string | null, label: string): any {
 }
 
 export function persistConfig() {
-    localStorage.setItem("luthor112.steam-easygrid.config", JSON.stringify(pluginConfig));
+    persistStored(CONFIG_STORAGE_KEY, pluginConfig);
     searchCache = {};
 }
 
@@ -241,7 +275,7 @@ export function SetCustomizationState(appID: number, imgType: number, newState: 
     }
 
     customizationStates[appID.toString()][imgTypeDict[imgType] as keyof AppCustomizationState] = newState;
-    localStorage.setItem("luthor112.steam-easygrid.customization", JSON.stringify(customizationStates));
+    persistCustomizationStates();
 }
 
 export function GetCustomizationState(appID: number, imgType: number) {

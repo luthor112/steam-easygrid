@@ -1,7 +1,7 @@
 import { SidebarNavigation, ModalRoot, findModuleExport, routerHook, EUIMode, DialogButton, TextField, Focusable, Navigation, showModal, sleep } from "@steambrew/client";
 import { clear_icon } from "./backend";
 import { refreshAppIconImages } from "./icon-refresh";
-import { pluginConfig, gameIDOverrides, searchCache, imgTypeSettingsMap, ICON_IMG_TYPE, SetCustomizationState, persistConfig } from "./config";
+import { pluginConfig, gameIDOverrides, searchCache, imgTypeSettingsMap, ICON_IMG_TYPE, SetCustomizationState, persistConfig, persistOverrides } from "./config";
 import { getSteamGridDBId, getSearchData, applyIconFromUrlWithReason, isShortcut, resetShortcutIcon, getImageData, getImageExt } from "./api";
 import { ImageSearchSetting, GlobalSettingsPage, useImageTypeReset } from "./settings-components";
 import React, { useState, useEffect, useRef } from "react";
@@ -134,7 +134,7 @@ function getEasyGridComponent(windowRef: Window) {
             const newId = Number(sgdbIdInput);
             if (!isNaN(newId) && newId > 0) {
                 gameIDOverrides[props.appid.toString()] = newId;
-                localStorage.setItem("luthor112.steam-easygrid.overrides", JSON.stringify(gameIDOverrides));
+                persistOverrides();
                 searchCache[props.appid.toString()] = {};
                 GetCurrentSettings();
             }
@@ -142,7 +142,7 @@ function getEasyGridComponent(windowRef: Window) {
 
         const ClearSteamGridDBIdOverride = async () => {
             delete gameIDOverrides[props.appid.toString()];
-            localStorage.setItem("luthor112.steam-easygrid.overrides", JSON.stringify(gameIDOverrides));
+            persistOverrides();
             searchCache[props.appid.toString()] = {};
             GetCurrentSettings();
         };

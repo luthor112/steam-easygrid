@@ -115,6 +115,38 @@ function log_frontend(msg)
     logger:info("[frontend] " .. tostring(msg))
 end
 
+-- PERSISTENT STORE
+
+local function store_dir()
+    return fs.join(millennium.steam_path(), "millennium", "config", "steam-easygrid")
+end
+
+local function store_path(key)
+    return fs.join(store_dir(), (string.gsub(key, "[^%w%._-]", "_")) .. ".json")
+end
+
+function save_store(a_key, b_value)
+    local dir = store_dir()
+    if not fs.exists(dir) then fs.create_directories(dir) end
+
+    local f, err = io.open(store_path(a_key), "wb")
+    if not f then
+        logger:error("save_store: cannot open " .. store_path(a_key) .. ": " .. tostring(err))
+        return false
+    end
+    f:write(b_value)
+    f:close()
+    return true
+end
+
+function load_store(a_key)
+    local f = io.open(store_path(a_key), "rb")
+    if not f then return "" end
+    local data = f:read("*a")
+    f:close()
+    return data or ""
+end
+
 -- ICONS
 
 function set_icon_from_url(a_appid, b_img_url, c_extension)

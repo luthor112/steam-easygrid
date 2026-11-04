@@ -1,6 +1,6 @@
 import { call_api_backend, download_image, get_image_chunk, cleanup_image, log_frontend, set_icon_from_url, get_icon_path } from "./backend";
 import { refreshAppIconImages } from "./icon-refresh";
-import { pluginConfig, gameIDOverrides, searchCache, imgTypeDict, ICON_IMG_TYPE, SetCustomizationState, type ImageTypeSubConfig, type PluginConfig } from "./config";
+import { pluginConfig, gameIDOverrides, searchCache, imgTypeDict, ICON_IMG_TYPE, SetCustomizationState, persistOverrides, type ImageTypeSubConfig, type PluginConfig } from "./config";
 
 export async function fetchEncodedImage(imgURL: string): Promise<string | undefined> {
     const size = await download_image({ a_img_url: imgURL });
@@ -58,7 +58,7 @@ export async function getSteamGridDBId(appId: number): Promise<number | undefine
         const gamesResponse = await callAPI(`games/steam/${appId}`);
         if (gamesResponse) {
             gameIDOverrides[appId.toString()] = gamesResponse["data"]["id"];
-            localStorage.setItem("luthor112.steam-easygrid.overrides", JSON.stringify(gameIDOverrides));
+            persistOverrides();
             return gamesResponse["data"]["id"];
         } else if (pluginConfig.display_name_fallback) {
             const currentApp = appStore.allApps.find((x: any) => x.appid === appId);
@@ -67,7 +67,7 @@ export async function getSteamGridDBId(appId: number): Promise<number | undefine
             if (searchResponse) {
                 if (searchResponse["data"].length > 0) {
                     gameIDOverrides[appId.toString()] = searchResponse["data"][0]["id"];
-                    localStorage.setItem("luthor112.steam-easygrid.overrides", JSON.stringify(gameIDOverrides));
+                    persistOverrides();
                     return searchResponse["data"][0]["id"];
                 }
             }
