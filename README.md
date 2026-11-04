@@ -9,6 +9,8 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
     - Or switch them to the current official assets
 - Set custom height for the Background image (hero)
     - Good ones are e.g. `530px` or `1240px`
+- Back up and restore all your custom images (grids, heroes, logos, wide grids and icons)
+    - Backups can go to any folder you choose, and named presets are kept until you delete them
 
 ## Notices
 - The plugin needs an API key to work, set it in the Configuration
@@ -20,6 +22,10 @@ A Millennium plugin that adds quick and easy SteamGridDB integration to Steam.
 
 ## Configuration
 - Configuration options are available through the Millennium Library Manager
+- Backup options:
+    - `Back up before SGDB runs`: automatically back up your artwork before the SGDB menu replaces or resets images (on by default)
+    - `Backup folder`: where backups are saved, empty uses `Steam\millennium\config\steam-easygrid\backups`
+    - `Backups to keep`: how many automatic backups to keep in the backup folder, older ones are deleted (presets are never deleted)
 
 ## Prerequisites
 - [Millennium](https://steambrew.app/)
@@ -106,6 +112,20 @@ Made with [contrib.rocks](https://contrib.rocks).
 - Select `Auto replace images` from the menu
 
 ![SG button on the app page](screenshots/sg-app-button.png)
+
+# Backing up and restoring your artwork
+
+- A backup holds the custom images of every Steam account on the computer, plus your SteamGridDB ID overrides and which images you customized
+    - The API key is not included, so backups are safe to put on a shared drive
+- In the Millennium Library Manager, under Easy SteamGrid:
+    - `Back up now` creates a backup in the backup folder
+    - `Save as preset` saves your current artwork under a name, to switch back to later; presets are kept until you delete them
+    - `Restore from` takes the path of a single backup, or of a folder with backups, anywhere on your computer; click `Find backups`, then `Restore` next to the one you want
+    - `Delete` removes a preset
+- The `SGDB` menu (also in Big Picture) has a `Backup` entry with `Back up artwork now` and the presets and latest backups in the backup folder
+- Before restoring you are asked whether your current artwork should be backed up first; answering no asks for one more confirmation
+- Restart Steam after restoring to see all the restored images
+- Restoring puts the images back for the Steam accounts that exist on this computer, and skips the others
 
 ## Troubleshooting
 
