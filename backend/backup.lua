@@ -1,7 +1,7 @@
 local millennium = require("millennium")
 local fs = require("fs")
 local logger = require("logger")
-local cjson = require("cjson")
+local json = require("json")
 local icons = require("icons")
 
 local M = {}
@@ -47,7 +47,7 @@ local function read_manifest(dir)
     if not f then return nil end
     local raw = f:read("*a")
     f:close()
-    local ok, manifest = pcall(cjson.decode, raw)
+    local ok, manifest = pcall(json.decode, raw)
     if ok and type(manifest) == "table" then return manifest end
     return nil
 end
@@ -174,7 +174,7 @@ function M.create(root, keep, suffix, protect_path, preset_name)
         return { ok = false, empty = true, error = "there is no custom artwork to back up" }
     end
 
-    local manifest = cjson.encode({
+    local manifest = json.encode({
         version = 1, created = os.time(), users = users, grid_files = grid_files, store_files = store_files,
         preset = preset_name ~= nil, name = preset_name and string.match(preset_name, "^%s*(.-)%s*$") or nil,
     })
