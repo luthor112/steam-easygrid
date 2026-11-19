@@ -1,4 +1,4 @@
-import { Millennium, Menu, MenuItem, MenuGroup as SdkMenuGroup, showContextMenu, showModal, ConfirmModal, DialogButton, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
+import { Millennium, Menu, MenuItem, MenuGroup, showContextMenu, showModal, ConfirmModal, DialogButton, findModule, afterPatch, findModuleByExport, findInReactTree, findInTree, fakeRenderComponent, sleep } from "@steambrew/client";
 import { createRoot } from "react-dom/client";
 import { pluginConfig, searchCache, imgTypeSettingsMap, getExcludedAppIDs, toggleAppExcludedFromReplacement, GetCustomizationState, SetCustomizationState } from "./config";
 import { applyFirstWorkingImage, autoReplaceForApp, setSteamAssetsForApp, unquoteBackendString } from "./api";
@@ -8,17 +8,6 @@ import { setIconRefreshPopup } from "./icon-refresh";
 import { get_missing_images } from "./backend";
 
 const WaitForElement = async (sel: string, parent = document) => [...(await Millennium.findElement(parent, sel))][0];
-
-const isMenuItemClass = (e: any) => {
-    if (!e?.prototype?.Focus || !e?.prototype?.OnOKButton) return false;
-    const src = e.prototype.render?.toString?.() ?? "";
-    return src.includes('"emphasis"==this.props.tone') || src.includes('this.props.tone=="emphasis"');
-};
-
-export const MenuGroup: typeof SdkMenuGroup = SdkMenuGroup ?? (() => {
-    const menuModule = findModuleByExport(isMenuItemClass);
-    return Object.values(menuModule ?? {}).find((e: any) => typeof e === "function" && e.toString().includes("bInGamepadUI:")) as typeof SdkMenuGroup;
-})();
 
 const IMAGE_TYPE_LABELS = Object.values(imgTypeSettingsMap).map((t) => t.label);
 const ALL_IMAGE_TYPES = IMAGE_TYPE_LABELS.map((_, idx) => idx);

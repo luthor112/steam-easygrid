@@ -1,6 +1,6 @@
-import { Menu, Focusable, showContextMenu, routerHook, EUIMode } from "@steambrew/client";
+import { Menu, MenuGroup, Focusable, showContextMenu, routerHook, EUIMode } from "@steambrew/client";
 import { useEffect, useState } from "react";
-import { MenuGroup, buildBackupMenuGroup, buildReplaceResetMenuGroups, buildStopMenuItem } from "./context-menu";
+import { buildBackupMenuGroup, buildReplaceResetMenuGroups, buildStopMenuItem } from "./context-menu";
 
 const SELECT_BUTTON = 13;
 const LIBRARY_ROUTES = ["/library/home", "/library"];

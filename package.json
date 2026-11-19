@@ -4,24 +4,19 @@
     "build": "millennium-ttc --build prod"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.26.0",
-    "@babel/preset-react": "^7.25.9",
     "@types/react": "16.14.0",
-    "@types/react-dom": "^18.3.0",
-    "@types/webpack": "^5.28.5"
+    "@types/react-dom": "^18.3.0"
   },
   "type": "module",
   "name": "steam-easygrid",
-  "version": "4.6.2",
+  "version": "4.6.3",
   "description": "Quick and easy SteamGridDB integration",
   "main": "./frontend/index.jsx",
   "author": "luthor112",
   "license": "MIT",
   "dependencies": {
-    "@steambrew/api": "^5.8.4",
     "@steambrew/client": "^5.8.4",
     "@steambrew/ttc": "^3.2.6",
-    "@steambrew/webkit": "^5.8.4",
     "preact": "^10.25.0"
   }
 }

@@ -211,12 +211,7 @@ const MultiToggleSetting = (props: MultiToggleSettingProps) => {
                     <div
                         ref={panelRef}
                         className="_30wJO3MC4x-I1OWpy1TAeE _DialogInputContainer"
-                        style={{
-                            ...panelStyle, boxSizing: 'border-box',
-                            zIndex: 10000, maxHeight: '240px', overflowY: 'auto',
-                            borderRadius: '4px', padding: '4px',
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
-                        }}
+                        style={{ ...panelStyle, zIndex: 10000, maxHeight: '240px', overflowY: 'auto' }}
                     >
                         {props.options.map((opt) => (
                             <DialogCheckbox
